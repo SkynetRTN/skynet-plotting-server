@@ -22,4 +22,4 @@ $ source ./venv/bin/activate
 (venv) $ python main.py
 ```
 
-4. Try it! Example URL: [http://localhost:5000/data?age=6.80&metallicity=-0.35&filters=[%22uprime%22,%22H%22,%22J%22]
+4. Try it! Example URL: <http://localhost:5000/data?age=6.80&metallicity=-0.35&filters=[%22uprime%22,%22H%22,%22J%22]>
