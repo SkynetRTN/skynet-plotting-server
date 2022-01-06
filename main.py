@@ -6,7 +6,6 @@ api = Flask(__name__)
 
 
 cols = [
-    "0",
     "junk",
     "junk",
     "junk",
@@ -23,7 +22,7 @@ cols = [
     "rprime",
     "iprime",
     "zprime",
-    "J",
+    "J",  # TODO: make these distinct
     "H",
     "Ks",
     "junk",
@@ -56,7 +55,7 @@ def find_data_in_files(
     return r_data
 
 
-@api.route("/data", methods=["GET"])
+@api.route("/isochrone", methods=["GET"])
 def get_data():
     try:
         age = float(request.args.get("age"))
