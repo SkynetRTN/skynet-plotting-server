@@ -1,3 +1,4 @@
+import os
 from flask import Flask, json, request
 import numpy as np
 import ast
@@ -33,7 +34,14 @@ def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
 
     # attempt to retrieve data from files
     try:
-        data = np.load(f"./iso-npy-data/Girardi_{age:.2f}_{metallicity:.2f}.npy")
+        data = np.load(
+            os.path.join(
+                os.path.dirname(__file__),
+                "iso-npy-data",
+                f"Girardi_{age:.2f}_{metallicity:.2f}.npy",
+            )
+        )
+
     except FileNotFoundError:
         return {"error": "Requested data not found"}
     # format data
