@@ -7,8 +7,8 @@ For use with @shengjiex98's [skynet plotting tool](https://github.com/shengjiex9
 1. Create a virtual environment and activate it
 ```bash
 $ python --version
-3.10.1
-$ python -m venv --upgrade-deps venv
+3.8.12
+$ python -m venv venv
 $ source ./venv/bin/activate
 ```
 

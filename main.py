@@ -29,9 +29,7 @@ cols = [
 ]
 
 
-def find_data_in_files(
-    age: float, metallicity: float, filters: list[str]
-) -> list[float]:
+def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
 
     # attempt to retrieve data from files
     try:
