@@ -1,9 +1,13 @@
 import os
-from flask import Flask, json, request
+from flask import Flask, json, request, render_template
+
+# from flask_cors import CORS
+from werkzeug.utils import secure_filename
 import numpy as np
 import ast
 
 api = Flask(__name__)
+# CORS(api)
 
 
 cols = [
