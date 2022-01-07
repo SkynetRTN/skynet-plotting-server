@@ -15,9 +15,9 @@ cols = [
     "V",
     "R",
     "I",
-    "J",
-    "H",
-    "K",
+    "Jx",
+    "Hx",
+    "Kx",
     "uprime",
     "gprime",
     "rprime",
@@ -25,7 +25,7 @@ cols = [
     "zprime",
     "J",  # TODO: make these distinct
     "H",
-    "Ks",
+    "K",
     "junk",
 ]
 
