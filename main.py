@@ -25,7 +25,7 @@ cols = [
     "zprime",
     "J",  # TODO: make these distinct
     "H",
-    "K",
+    "Ks",
     "junk",
 ]
 
