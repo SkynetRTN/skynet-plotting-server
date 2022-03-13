@@ -1,5 +1,7 @@
+from distutils.log import error
 import os
 from flask import Flask, json, request, render_template
+from flask_cors import CORS
 
 # from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -9,8 +11,9 @@ import ast
 from gaia import gaia_args_verify
 
 api = Flask(__name__)
-# CORS(api)
+CORS(api)
 
+api.debug = True
 
 cols = [
     "junk",
@@ -80,22 +83,18 @@ def get_data():
     return json.dumps(find_data_in_files(age, metallicity, filters))
 
 
-@api.route("/gaia", methods=["GET"])
+@api.route("/gaia", methods=["POST"])
 def get_gaia():
     try:
-        ra = float(request.args.get("ra"))
-        dec = float(request.args.get("dec"))
-        r = float(request.args.get("r"))
-        args = [ra, dec, r]
-        # verify if args are in range
-        verified = gaia_args_verify(args)
-        # if args are not in range: terminate by returning errors
-        if verified:
-            return json.dumps(verified)
+        data = json.loads(request.get_data())['data']
+        result = []
+        for star in data:
+            result.append(
+                {'id': star['id'], 'range': 6.9, 'pm': {'ra': 6.9, 'dec': 6.9}})
     except:
         return json.dumps({"error": "Input invalid type"})
 
-    return json.dumps([ra, dec, r])
+    return json.dumps(result)
 
 
 def main():
