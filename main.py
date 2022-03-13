@@ -6,6 +6,8 @@ from werkzeug.utils import secure_filename
 import numpy as np
 import ast
 
+from gaia import gaia_args_verify
+
 api = Flask(__name__)
 # CORS(api)
 
@@ -55,7 +57,8 @@ def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
             return data[:, cols.index(filters[number])]
 
         r_data = list(
-            zip([round(a - b, 4) for a, b in zip(get_col(0), get_col(1))], get_col(2))
+            zip([round(a - b, 4)
+                for a, b in zip(get_col(0), get_col(1))], get_col(2))
         )
 
         # r_data = list(zip(*[data[:, cols.index(i)] for i in filters]))
@@ -75,6 +78,24 @@ def get_data():
     except ValueError:
         return json.dumps({"error": "Input invalid type"})
     return json.dumps(find_data_in_files(age, metallicity, filters))
+
+
+@api.route("/gaia", methods=["GET"])
+def get_gaia():
+    try:
+        ra = float(request.args.get("ra"))
+        dec = float(request.args.get("dec"))
+        r = float(request.args.get("r"))
+        args = [ra, dec, r]
+        # verify if args are in range
+        verified = gaia_args_verify(args)
+        # if args are not in range: terminate by returning errors
+        if verified:
+            return json.dumps(verified)
+    except:
+        return json.dumps({"error": "Input invalid type"})
+
+    return json.dumps([ra, dec, r])
 
 
 def main():
