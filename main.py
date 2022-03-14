@@ -1,14 +1,14 @@
 from distutils.log import error
 import os
 from flask import Flask, json, request, render_template
-from flask_cors import CORS
 
-# from flask_cors import CORS
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import numpy as np
 import ast
 
 from gaia import gaia_args_verify
+from gaia_util import gaia_match
 
 api = Flask(__name__)
 CORS(api)
@@ -87,10 +87,8 @@ def get_data():
 def get_gaia():
     try:
         data = json.loads(request.get_data())['data']
-        result = []
-        for star in data:
-            result.append(
-                {'id': star['id'], 'range': 6.9, 'pm': {'ra': 6.9, 'dec': 6.9}})
+        range = json.loads(request.get_data())['range']
+        result = gaia_match(data, range)
     except:
         return json.dumps({"error": "Input invalid type"})
 

@@ -9,6 +9,13 @@ class Star:
         self.pmra = pmra
         self.pmdec = pmdec
 
+    def __init__(self, paras) -> None:
+        self.ra = float(paras[0])
+        self.dec = float(paras[1])
+        self.r = float(paras[2])
+        self.pmra = float(paras[3])
+        self.pmdec = float(paras[4])
+
     # return if the other star is has smaller key value compared to current star
     def compare(self, star, dim):
         if (dim % 2 == 0):
@@ -157,7 +164,7 @@ class Star_tree:
             return
 
         nn_recur(None, self, query, 0)
-        return best
+        return [best, best_d]
 
     def tabs(self, n) -> str:
         result = ""
