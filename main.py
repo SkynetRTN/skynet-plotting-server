@@ -1,5 +1,6 @@
 from distutils.log import error
 import os
+import sqlite3
 from flask import Flask, json, request, render_template
 
 from flask_cors import CORS
@@ -71,6 +72,22 @@ def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
     return r_data
 
 
+def get_iSkip(age, metallicity):
+    conn = sqlite3.connect('iSkip.sqlite')
+    result = -1
+    try:
+        cur = conn.cursor()
+        sources = cur.execute(
+            'SELECT * FROM iSkip_forsql WHERE age = ? AND metallicity = ?', [age, metallicity]).fetchall()
+        if sources != []:
+            result = sources[0][2]
+    except:
+        pass
+    finally:
+        conn.close()
+    return result
+
+
 @api.route("/isochrone", methods=["GET"])
 def get_data():
     try:
@@ -80,7 +97,7 @@ def get_data():
         print(filters)
     except ValueError:
         return json.dumps({"error": "Input invalid type"})
-    return json.dumps(find_data_in_files(age, metallicity, filters))
+    return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': get_iSkip(age, metallicity)})
 
 
 @api.route("/gaia", methods=["POST"])
