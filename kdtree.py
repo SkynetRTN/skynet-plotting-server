@@ -2,12 +2,6 @@ import math
 
 
 class Star:
-    def __init__(self, ra, dec, r, pmra, pmdec) -> None:
-        self.ra = ra
-        self.dec = dec
-        self.r = r
-        self.pmra = pmra
-        self.pmdec = pmdec
 
     def __init__(self, paras) -> None:
         self.ra = float(paras[0])
