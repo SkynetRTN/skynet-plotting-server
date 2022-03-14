@@ -21,19 +21,39 @@ from kdtree import Star, Star_tree, haversine
 #     [42.892934030109, 70.68336708938821, 89.71731321278779, 0, 0],
 # ]
 
+# wrap cases
+# data_set = [
+#     [0, 10, 0, 0, 0],
+#     [10, 12, 0, 0, 0],
+#     [-10, 13, 0, 0, 0],
+#     [20, 14, 0, 0, 0],
+#     [-20, 15, 0, 0, 0],
+#     [5, 16, 0, 0, 0],
+#     [-4, 17, 0, 0, 0],
+#     [2, 18, 0, 0, 0],
+#     [-8, 19, 0, 0, 0],
+#     [6, 20, 0, 0, 0],
+# ]
+
+# pole cases
 data_set = [
-    [202, 44, 0, 0, 0],
-    [112, 50, 0, 0, 0],
-    [312, -70, 0, 0, 0],
-    [36, -28, 0, 0, 0],
-    [54, 77, 0, 0, 0],
+    [0, 90, 0, 0, 0],
+    [10, 89, 0, 0, 0],
+    [190, 88, 0, 0, 0],
+    [20, 86, 0, 0, 0],
+    [200, 85, 0, 0, 0],
+    [5, 84, 0, 0, 0],
+    [256, 83, 0, 0, 0],
+    [2, 82, 0, 0, 0],
+    [252, 80, 0, 0, 0],
+    [6, 87, 0, 0, 0],
 ]
 
 star_list = []
 for data in data_set:
-    star_list.append(Star(data[0], data[1], data[2], data[3], data[4]))
+    star_list.append(Star(data))
 
-dummy = Star(20, 20, 20, 1, 1)
+dummy = Star([4, 85, 20, 1, 1])
 
 
 def nn_test():
@@ -53,15 +73,15 @@ def nn_real_test(trials, node):
     count = 0
     for _ in range(trials):
         node_count = node
-        real_stars = [
-            Star(random()*360, (random()*180 - 90), random()*90, 0, 0)]
+        real_stars = [Star(
+            [random()*360, (random()*180 - 90), random()*90, 0, 0])]
         real_tree = Star_tree(real_stars[0])
         for _ in range(node_count-1):
             temp = Star(random()*360, (random()*180 - 90), random()*90, 0, 0)
             real_tree.insert(temp)
             real_stars.append(temp)
-        real_target = Star(
-            random()*360, (random()*180 - 90), random()*90, 0, 0)
+        real_target = Star([
+            random()*360, (random()*180 - 90), random()*90, 0, 0])
         min_d = None
         min_star = None
         for star in real_stars:
@@ -107,4 +127,7 @@ def nn_real_test(trials, node):
 # print(tree)
 # print(tree.nn(Star(51, 42, 59, 0, 0)))
 
-print(nn_real_test(1000, 250))
+print(nn_test()[0][0])
+
+
+# print(nn_real_test(1000, 250))
