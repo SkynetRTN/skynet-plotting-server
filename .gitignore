@@ -4,4 +4,4 @@ venv
 __pycache__
 *.pyc
 .python-version
-*.sqlite
+gaia_clusters.sqlite
