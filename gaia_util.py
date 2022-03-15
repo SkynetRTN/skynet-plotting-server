@@ -1,10 +1,13 @@
 from os import error
+from platform import node
 import sqlite3
 
 
 from numpy import arcsin, cos, deg2rad, rad2deg, sin
-from kdtree import Star, Star_tree
 import math
+import numpy as np
+
+from pro_tree import tree_matching
 
 
 def gaia_get_data(range):
@@ -79,27 +82,56 @@ def gaia_get_data(range):
 
 
 # print(gaia_get_data({'minra': 90, 'maxra': 120, 'mindec': 45, 'maxdec': 50}))
+def convert_gaia(data, range):
+    ra = math.radians(data[1])
+    dec = math.radians(data[2])
+    return convert(ra, dec, range)
 
-def gaia_match(photometry, range):
-    gaia_data = gaia_get_data(range)
-    print(len(gaia_data))
-    kd_tree = Star_tree(Star(gaia_data[0][1:]))
-    for entry in gaia_data[1:]:
-        kd_tree.insert(Star(entry[1:]))
-    result = []
-    count = 0
-    print(len(photometry))
+
+def convert_usr(data, range):
+    ra = math.radians(data['ra'])
+    dec = math.radians(data['dec'])
+    return convert(ra, dec, range)
+
+
+def convert(ra, dec, range):
+    if range['wrap']:
+        ra = ra - 2 * math.pi
+    ra_c = math.radians(range['ra'])
+    dec_c = math.radians(range['dec'])
+    x = math.cos(dec) * math.cos(ra-ra_c)
+    y = -math.cos(dec) * math.cos(ra-ra_c) * math.sin(dec_c) + \
+        math.cos(ra-ra_c) * math.cos(dec_c)
+    return [x, y]
+
+
+def haversine(dec1, dec2, ra1, ra2):
+    # approx of (theta/2)^2
+    dec1 = math.radians(dec1)
+    dec2 = math.radians(dec2)
+    ra1 = math.radians(ra1)
+    ra2 = math.radians(ra2)
+    return math.sin((dec1 - dec2)/2)**2 + math.cos(dec1) * math.cos(dec2) * (math.sin((ra1 - ra2)/2))**2
+
+
+def gaia_match(photometry, star_range):
+    gaia_data: list[dict] = gaia_get_data(star_range)
+    nodes = []
+    for data in gaia_data:
+        nodes.append(convert_gaia(data, star_range))
+    nodes = np.array(nodes)
+    entrys = []
     for entry in photometry:
-        target = Star([entry['ra'], entry['dec']]+[0, 0, 0])
-        match = kd_tree.nn(target)
-        # print(match[1])
-        if match[1] < 1.45444*10**(-5):
-            # if match[1] < 5.45444*10**(-5):
-            dist = match[1]**0.5*2/math.pi*180
-            result.append({'id': entry['id'], 'range': dist, 'pm': {
-                          'ra': match[0].pmra, 'dec': match[0].pmdec}})
-            kd_tree.delete(match[0])
-        count += 1
+        entrys.append(convert_usr(entry, star_range))
+    entrys = np.array(entrys)
+    matched = tree_matching(nodes, entrys)
+    result = []
+    for i in range(len(photometry)):
+        query = photometry[i]
+        gaia = gaia_data[matched[i]]
+        if haversine(query['dec'], gaia[2], query['ra'], gaia[1]) < 1.45444*10**(-5):
+            result.append({'id': query['id'], 'range': gaia[3], 'pm': {
+                          'ra': gaia[4], 'dec': gaia[5]}})
     return result
 
 

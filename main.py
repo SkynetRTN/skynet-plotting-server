@@ -104,7 +104,6 @@ def get_gaia():
     try:
         data = json.loads(request.get_data())['data']
         range = json.loads(request.get_data())['range']
-        print(range)
         result = gaia_match(data, range)
     except Exception as e:
         print(e)
