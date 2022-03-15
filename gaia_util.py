@@ -82,18 +82,24 @@ def gaia_get_data(range):
 
 def gaia_match(photometry, range):
     gaia_data = gaia_get_data(range)
+    print(len(gaia_data))
     kd_tree = Star_tree(Star(gaia_data[0][1:]))
     for entry in gaia_data[1:]:
         kd_tree.insert(Star(entry[1:]))
     result = []
+    count = 0
+    print(len(photometry))
     for entry in photometry:
         target = Star([entry['ra'], entry['dec']]+[0, 0, 0])
         match = kd_tree.nn(target)
+        # print(match[1])
         if match[1] < 1.45444*10**(-5):
+            # if match[1] < 5.45444*10**(-5):
             dist = match[1]**0.5*2/math.pi*180
-            result.insert({'id': entry['id'], 'range': dist, 'pm': {
+            result.append({'id': entry['id'], 'range': dist, 'pm': {
                           'ra': match[0].pmra, 'dec': match[0].pmdec}})
             kd_tree.delete(match[0])
+        count += 1
     return result
 
 

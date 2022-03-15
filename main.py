@@ -1,9 +1,8 @@
-from distutils.log import error
 import os
 import sqlite3
 from flask import Flask, json, request, render_template
 
-# from flask_cors import CORS
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import numpy as np
 import ast
@@ -12,9 +11,9 @@ from gaia import gaia_args_verify
 from gaia_util import gaia_match
 
 api = Flask(__name__)
-# CORS(api)
+CORS(api)
 
-# api.debug = True
+api.debug = True
 
 cols = [
     "junk",
@@ -94,7 +93,7 @@ def get_data():
         age = float(request.args.get("age"))
         metallicity = float(request.args.get("metallicity"))
         filters = ast.literal_eval(request.args.get("filters"))
-        print(filters)
+        # print(filters)
     except ValueError:
         return json.dumps({"error": "Input invalid type"})
     return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': get_iSkip(age, metallicity)})
@@ -105,8 +104,10 @@ def get_gaia():
     try:
         data = json.loads(request.get_data())['data']
         range = json.loads(request.get_data())['range']
+        print(range)
         result = gaia_match(data, range)
-    except:
+    except Exception as e:
+        print(e)
         return json.dumps({"error": "Input invalid type"})
 
     return json.dumps(result)

@@ -1,4 +1,5 @@
 from random import random
+import time
 from tkinter.messagebox import NO
 
 from numpy import real
@@ -70,18 +71,28 @@ def nn_test():
 
 
 def nn_real_test(trials, node):
+    duration = 0
+    build = 0
     count = 0
     for _ in range(trials):
         node_count = node
         real_stars = [Star(
             [random()*360, (random()*180 - 90), random()*90, 0, 0])]
+        start = time.time()
         real_tree = Star_tree(real_stars[0])
         for _ in range(node_count-1):
-            temp = Star(random()*360, (random()*180 - 90), random()*90, 0, 0)
+            temp = Star([random()*360, (random()*180 - 90), random()*90, 0, 0])
             real_tree.insert(temp)
             real_stars.append(temp)
+        end = time.time()
+        build += (end - start)
         real_target = Star([
             random()*360, (random()*180 - 90), random()*90, 0, 0])
+        start = time.time()
+        result = real_tree.nn(real_target)[0]
+        # real_tree.delete(result)
+        end = time.time()
+        duration += (end-start)
         min_d = None
         min_star = None
         for star in real_stars:
@@ -89,7 +100,6 @@ def nn_real_test(trials, node):
             if min_d == None or dist < min_d:
                 min_star = star
                 min_d = dist
-        result = real_tree.nn(real_target)
         try:
             assert result == min_star
             count += 1
@@ -99,6 +109,8 @@ def nn_real_test(trials, node):
             # print(min_star)
             # print(result)
             pass
+    print(duration)
+    print(build)
     return (count/trials)*100
 
 
@@ -127,7 +139,7 @@ def nn_real_test(trials, node):
 # print(tree)
 # print(tree.nn(Star(51, 42, 59, 0, 0)))
 
-print(nn_test()[0][0])
+# print(nn_test()[0][0])
 
 
-# print(nn_real_test(1000, 250))
+print(nn_real_test(900, 30000))
