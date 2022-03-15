@@ -99,9 +99,9 @@ def convert(ra, dec, range):
         ra = ra - 2 * math.pi
     ra_c = math.radians(range['ra'])
     dec_c = math.radians(range['dec'])
-    x = math.cos(dec) * math.cos(ra-ra_c)
-    y = -math.cos(dec) * math.cos(ra-ra_c) * math.sin(dec_c) + \
-        math.cos(ra-ra_c) * math.cos(dec_c)
+    x = math.cos(dec) * math.sin(ra-ra_c)
+    y = -math.sin(dec) * math.cos(ra-ra_c) * math.sin(dec_c) + \
+        math.cos(dec-dec_c) * math.sin(dec_c)
     return [x, y]
 
 
