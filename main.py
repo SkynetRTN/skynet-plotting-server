@@ -1,8 +1,10 @@
 import os
+from os import error
 import sqlite3
 from flask import Flask, json, request, render_template
 
-# from flask_cors import CORS
+from flask_cors import CORS
+from sklearn.metrics import rand_score
 from werkzeug.utils import secure_filename
 import numpy as np
 import ast
@@ -11,7 +13,7 @@ from gaia import gaia_args_verify
 from gaia_util import gaia_match
 
 api = Flask(__name__)
-# CORS(api)
+CORS(api)
 
 api.debug = True
 
@@ -52,7 +54,7 @@ def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
         )
 
     except FileNotFoundError:
-        return {"error": "Requested data not found"}
+        raise ValueError({"error": "Requested data not found"})
     # format data
     try:
 
@@ -65,14 +67,15 @@ def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
         )
 
         # r_data = list(zip(*[data[:, cols.index(i)] for i in filters]))
-    except ValueError:
-        return {"error": "Requested filter not found"}
+    except:
+        raise error({"error": "Requested filter not found"})
     # return
     return r_data
 
 
 def get_iSkip(age, metallicity):
-    conn = sqlite3.connect('iSkip.sqlite')
+    iSkip_file = 'iSkip.sqlite'
+    conn = sqlite3.connect(iSkip_file)
     result = -1
     try:
         cur = conn.cursor()
@@ -81,7 +84,7 @@ def get_iSkip(age, metallicity):
         if sources != []:
             result = sources[0][2]
     except:
-        pass
+        raise error({"error": "Cannot Pull from iSkip Database"})
     finally:
         conn.close()
     return result
@@ -93,23 +96,27 @@ def get_data():
         age = float(request.args.get("age"))
         metallicity = float(request.args.get("metallicity"))
         filters = ast.literal_eval(request.args.get("filters"))
+        iSkip = get_iSkip(age, metallicity)
+        return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
         # print(filters)
-    except ValueError:
-        return json.dumps({"error": "Input invalid type"})
-    return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': get_iSkip(age, metallicity)})
+    except error as e:
+        print(str(e))
+        return json.dumps(str(e))
 
 
 @api.route("/gaia", methods=["POST"])
 def get_gaia():
     try:
-        data = json.loads(request.get_data())['data']
-        range = json.loads(request.get_data())['range']
+        try:
+            data = json.loads(request.get_data())['data']
+            range = json.loads(request.get_data())['range']
+        except:
+            raise error({'error': 'GAIA Input invalid type'})
         result = gaia_match(data, range)
-    except Exception as e:
-        print(e)
-        return json.dumps({"error": "Input invalid type"})
-
-    return json.dumps(result)
+        return json.dumps(result)
+    except error as e:
+        print(str(e))
+        return json.dumps(str(e))
 
 
 def main():

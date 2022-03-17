@@ -16,13 +16,13 @@ def gaia_get_data(range):
         ra = float(range['ra'])
         r = float(range['r'])
     except:
-        return {"error": "Input invalid type"}
+        raise error({"error": "Input invalid type"})
     if not 0 <= ra < 360:
-        return {'error': 'Expected RA in the range [0, 360)'}
+        raise error({'error': 'Expected RA in the range [0, 360)'})
     if not -90 <= dec < 90:
-        return {'error': 'Expected Dec in the range [-90, +90]'}
+        raise error({'error': 'Expected Dec in the range [-90, +90]'})
     if not 0 < r < 90:
-        return {'error': 'Expected query radius in the range (0, 90)'}
+        raise error({'error': 'Expected query radius in the range (0, 90)'})
 
     # Compute the RA/Dec query ranges; handle poles and RA=0/360 wrap
     dec_min, dec_max = dec - r, dec + r
@@ -70,8 +70,8 @@ def gaia_get_data(range):
             'pow(sin(radians(ra - ?)/2), 2)*cos(radians(dec))*?)) <= ?',
             args + (dec, ra, cos(deg2rad(dec)), deg2rad(r)/2)
         ).fetchall()
-    except error as e:
-        print(e)
+    except:
+        raise error({'error': "Cannot Pull GAIA Database"})
     finally:
         conn.close()
     # Output sources in CSV
@@ -115,16 +115,25 @@ def haversine(dec1, dec2, ra1, ra2):
 
 
 def gaia_match(photometry, star_range):
-    gaia_data: list[dict] = gaia_get_data(star_range)
-    nodes = []
-    for data in gaia_data:
-        nodes.append(convert_gaia(data, star_range))
-    nodes = np.array(nodes)
-    entrys = []
-    for entry in photometry:
-        entrys.append(convert_usr(entry, star_range))
-    entrys = np.array(entrys)
-    matched = tree_matching(nodes, entrys)
+    try:
+        gaia_data: list[dict] = gaia_get_data(star_range)
+    except error as e:
+        raise error(e)
+    try:
+        nodes = []
+        for data in gaia_data:
+            nodes.append(convert_gaia(data, star_range))
+        entrys = []
+        for entry in photometry:
+            entrys.append(convert_usr(entry, star_range))
+    except:
+        raise error({'error': 'Cannot Convert User Data for GAIA Matching '})
+    try:
+        nodes = np.array(nodes)
+        entrys = np.array(entrys)
+        matched = tree_matching(nodes, entrys)
+    except:
+        raise error({'error': 'KD-Tree Failure'})
     result = []
     for i in range(len(photometry)):
         query = photometry[i]
@@ -138,5 +147,5 @@ def gaia_match(photometry, star_range):
 # print(gaia_match(
     # [{'id': "src10", 'ra': 9.6, 'dec': -72}], {'minra': 0, 'maxra': 20, 'mindec': -90, 'maxdec': -50}))
 
-print(
-    len(gaia_get_data({'minra': 0, 'maxra': 290, 'mindec': 3, 'maxdec': 9})))
+# print(
+#     len(gaia_get_data({'minra': 0, 'maxra': 290, 'mindec': 3, 'maxdec': 9})))
