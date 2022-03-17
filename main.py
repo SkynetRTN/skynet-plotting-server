@@ -3,7 +3,6 @@ from os import error
 import sqlite3
 from flask import Flask, json, request, render_template
 
-from flask_cors import CORS
 from sklearn.metrics import rand_score
 from werkzeug.utils import secure_filename
 import numpy as np
@@ -13,9 +12,10 @@ from gaia import gaia_args_verify
 from gaia_util import gaia_match
 
 api = Flask(__name__)
-CORS(api)
 
-api.debug = True
+# from flask_cors import CORS
+# CORS(api)
+# api.debug = True
 
 cols = [
     "junk",
