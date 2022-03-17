@@ -74,7 +74,7 @@ def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
 
 
 def get_iSkip(age, metallicity):
-    iSkip_file = 'iSkip.sqlite'
+    iSkip_file = os.path.join(os.path.dirname(__file__), 'iSkip.sqlite')
     conn = sqlite3.connect(iSkip_file)
     result = -1
     try:

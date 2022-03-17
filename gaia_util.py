@@ -1,4 +1,5 @@
 from os import error
+import os
 from platform import node
 import sqlite3
 
@@ -56,7 +57,8 @@ def gaia_get_data(range):
             # RA range fully within [0, 360)
             where = 'ra >= ? and ra <= ? and dec >= ? and dec <= ?'
             args = (ra_min, ra_max, dec_min, dec_max)
-    sqlite_filename = 'gaia_clusters.sqlite'
+    sqlite_filename = os.path.join(
+        os.path.dirname(__file__), 'gaia_clusters.sqlite')
     conn = sqlite3.connect(sqlite_filename)
     try:
         # Query RA/Dec region(s) using constraints defined above (should be
