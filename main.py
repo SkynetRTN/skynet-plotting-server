@@ -7,6 +7,7 @@ from flask import Flask, json, request, render_template
 
 from sklearn.metrics import rand_score
 from werkzeug.utils import secure_filename
+from werkzeug.datastructures import CombinedMultiDict, MultiDict
 import numpy as np
 import ast
 
@@ -111,11 +112,18 @@ def get_gaia():
     tb = sys.exc_info()[2]
     try:
         try:
-            data = json.loads(request.get_data())['data']
-            range = json.loads(request.get_data())['range']
+            ds = [request.args, request.form]
+            body = request.get_json()
+            if body:
+                ds.append(MultiDict(body.items()))
+            request.args = CombinedMultiDict(ds)
+            data = request.args['data']
+            range = request.args['range']
         except:
             raise error({'error': 'GAIA Input invalid type'})
         result = gaia_match(data, range)
+        if result == []:
+            raise error('No Match in Gaia')
         return json.dumps(result)
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
