@@ -1,6 +1,8 @@
+import sys
 import os
 from os import error
 import sqlite3
+import traceback
 from flask import Flask, json, request, render_template
 
 from sklearn.metrics import rand_score
@@ -92,6 +94,7 @@ def get_iSkip(age, metallicity):
 
 @api.route("/isochrone", methods=["GET"])
 def get_data():
+    tb = sys.exc_info()[2]
     try:
         age = float(request.args.get("age"))
         metallicity = float(request.args.get("metallicity"))
@@ -99,13 +102,13 @@ def get_data():
         iSkip = get_iSkip(age, metallicity)
         return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
         # print(filters)
-    except error as e:
-        print(str(e))
-        return json.dumps(str(e))
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
 @api.route("/gaia", methods=["POST"])
 def get_gaia():
+    tb = sys.exc_info()[2]
     try:
         try:
             data = json.loads(request.get_data())['data']
@@ -114,9 +117,8 @@ def get_gaia():
             raise error({'error': 'GAIA Input invalid type'})
         result = gaia_match(data, range)
         return json.dumps(result)
-    except error as e:
-        print(str(e))
-        return json.dumps(str(e))
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
 def main():
