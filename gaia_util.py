@@ -66,6 +66,12 @@ def gaia_get_data(range):
         # only sources within the circle of radius r using the haversine
         # formula, which is more accurate for small distances
         cur = conn.cursor()
+        conn.create_function('asin', 1, math.asin)
+        conn.create_function('sqrt', 1, math.sqrt)
+        conn.create_function('sin', 1, math.sin)
+        conn.create_function('cos', 1, math.cos)
+        conn.create_function('radians', 1, math.radians)
+        conn.create_function('pow', 2, math.pow)
         sources = cur.execute(
             'select * from (select * from gedr3dis where ' + where +
             ') where asin(sqrt(pow(sin(radians(dec - ?)/2), 2) + '
