@@ -20,6 +20,18 @@ api = Flask(__name__)
 # CORS(api)
 # api.debug = True
 
+
+@api.before_request
+def resolve_request_body() -> None:
+    ds = [request.args, request.form]
+
+    body = request.get_json()
+    if body:
+        ds.append(MultiDict(body.items()))
+
+    request.args = CombinedMultiDict(ds)
+
+
 cols = [
     "junk",
     "junk",
@@ -97,12 +109,11 @@ def get_iSkip(age, metallicity):
 def get_data():
     tb = sys.exc_info()[2]
     try:
-        age = float(request.args.get("age"))
-        metallicity = float(request.args.get("metallicity"))
-        filters = ast.literal_eval(request.args.get("filters"))
+        age = float(request.args['age'])
+        metallicity = float(request.args['metallicity'])
+        filters = json.loads(request.args['filters'])
         iSkip = get_iSkip(age, metallicity)
         return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
-        # print(filters)
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
@@ -112,11 +123,6 @@ def get_gaia():
     tb = sys.exc_info()[2]
     try:
         try:
-            ds = [request.args, request.form]
-            body = request.get_json()
-            if body:
-                ds.append(MultiDict(body.items()))
-            request.args = CombinedMultiDict(ds)
             data = request.args['data']
             range = request.args['range']
         except:
