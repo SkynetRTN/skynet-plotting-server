@@ -1,3 +1,4 @@
+from flask_cors import CORS
 import sys
 import os
 from os import error
@@ -16,9 +17,8 @@ from gaia_util import gaia_match
 
 api = Flask(__name__)
 
-# from flask_cors import CORS
-# CORS(api)
-# api.debug = True
+CORS(api)
+api.debug = True
 
 
 @api.before_request
