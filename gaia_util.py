@@ -146,7 +146,7 @@ def gaia_match(photometry, star_range):
     for i in range(len(photometry)):
         query = photometry[i]
         gaia = gaia_data[matched[i]]
-        if haversine(query['dec'], gaia[2], query['ra'], gaia[1]) < 1.45444*10**(-5):
+        if haversine(query['dec'], gaia[2], query['ra'], gaia[1]) < 5.28849*10**(-11):
             result.append({'id': query['id'], 'range': gaia[3], 'pm': {
                           'ra': gaia[4], 'dec': gaia[5]}})
     return result
