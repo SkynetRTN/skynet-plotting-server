@@ -8,7 +8,7 @@ from numpy import arcsin, cos, deg2rad, rad2deg, sin
 import math
 import numpy as np
 
-from pro_tree import tree_matching
+from pro_tree import tree_matching_sci
 
 
 def gaia_get_data(range):
@@ -139,7 +139,7 @@ def gaia_match(photometry, star_range):
     try:
         nodes = np.array(nodes)
         entrys = np.array(entrys)
-        matched = tree_matching(nodes, entrys)
+        matched = tree_matching_sci(nodes, entrys)
     except:
         raise error({'error': 'KD-Tree Failure'})
     result = []
