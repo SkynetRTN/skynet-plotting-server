@@ -30,4 +30,4 @@ def tree_matching_grispy(array, querys):
 
     grid = gsp.GriSPy(np.array(array), N_cells=32)
     near_dist, near_ind = grid.nearest_neighbors(np.array(querys), n=1)
-    return near_ind
+    return [near_dist, near_ind]
