@@ -6,9 +6,8 @@ import sqlite3
 
 from numpy import arcsin, cos, deg2rad, rad2deg, sin
 import math
-import numpy as np
 
-from pro_tree import tree_matching_sci
+from pro_tree import tree_matching_grispy
 
 
 def gaia_get_data(range):
@@ -91,26 +90,11 @@ def gaia_get_data(range):
 
 # print(gaia_get_data({'minra': 90, 'maxra': 120, 'mindec': 45, 'maxdec': 50}))
 def convert_gaia(data, range):
-    ra = math.radians(data[1])
-    dec = math.radians(data[2])
-    return convert(ra, dec, range)
+    return [data[1], data[2]]
 
 
 def convert_usr(data, range):
-    ra = math.radians(data['ra'])
-    dec = math.radians(data['dec'])
-    return convert(ra, dec, range)
-
-
-def convert(ra, dec, range):
-    if range['wrap']:
-        ra = ra - 2 * math.pi
-    ra_c = math.radians(range['ra'])
-    dec_c = math.radians(range['dec'])
-    x = math.cos(dec) * math.sin(ra-ra_c)
-    y = -math.sin(dec) * math.cos(ra-ra_c) * math.sin(dec_c) + \
-        math.cos(dec-dec_c) * math.sin(dec_c)
-    return [x, y]
+    return [data['ra'], data['dec']]
 
 
 def haversine(dec1, dec2, ra1, ra2):
@@ -137,15 +121,13 @@ def gaia_match(photometry, star_range):
     except:
         raise error({'error': 'Cannot Convert User Data for GAIA Matching '})
     try:
-        nodes = np.array(nodes)
-        entrys = np.array(entrys)
-        matched = tree_matching_sci(nodes, entrys)
+        matched = tree_matching_grispy(nodes, entrys)
     except:
         raise error({'error': 'KD-Tree Failure'})
     result = []
     for i in range(len(photometry)):
         query = photometry[i]
-        gaia = gaia_data[matched[i]]
+        gaia = gaia_data[matched[i][0]]
         if haversine(query['dec'], gaia[2], query['ra'], gaia[1]) < 5.28849*10**(-11):
             result.append({'id': query['id'], 'range': gaia[3], 'pm': {
                           'ra': gaia[4], 'dec': gaia[5]}})
