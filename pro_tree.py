@@ -28,6 +28,6 @@ def tree_matching_sci(npArray, querys):
 
 def tree_matching_grispy(array, querys):
 
-    grid = gsp.GriSPy(np.array(array), N_cells=32)
+    grid = gsp.GriSPy(np.array(array), N_cells=128)
     near_dist, near_ind = grid.nearest_neighbors(np.array(querys), n=1)
     return [near_dist, near_ind]
