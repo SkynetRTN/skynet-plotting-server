@@ -20,7 +20,7 @@ api = Flask(__name__)
 CORS(api)
 api.debug = True
 
-
+#test
 @api.before_request
 def resolve_request_body() -> None:
     ds = [request.args, request.form]
