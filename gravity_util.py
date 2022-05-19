@@ -10,7 +10,7 @@ def find_gravity_data(mass_ratio, total_mass):
                 f"gravdata-{total_mass:.3f}-{mass_ratio:.3f}.dat"
             ),
             skip_header=1)
-        return data[:,:2]
+        return data[:,:2].tolist()
 
     except FileNotFoundError:
         raise ValueError({"error": "Requested data not found"})
