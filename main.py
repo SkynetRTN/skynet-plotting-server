@@ -116,7 +116,7 @@ def get_data():
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 @api.route("/gravity", methods=["GET"])
-def get_data():
+def get_gravity():
     tb = sys.exc_info()[2]
     try:
         mass_ratio = float(request.args['ratioMass'])
