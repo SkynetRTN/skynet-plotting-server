@@ -1,5 +1,5 @@
 import numpy as np
-
+import os
 
 def find_gravity_data(mass_ratio, total_mass):
     try:
