@@ -117,6 +117,16 @@ def get_data():
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
+@api.route("/gravity", methods=["GET"])
+def get_data():
+    tb = sys.exc_info()[2]
+    try:
+        mass_ratio = float(request.args['ratioMass'])
+        total_mass = float(request.args['totalMass'])
+        return json.dumps({'data': find_gravity_data(mass_ratio, total_mass)})
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
 
 @api.route("/gaia", methods=["POST"])
 def get_gaia():
