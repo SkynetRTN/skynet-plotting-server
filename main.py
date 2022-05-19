@@ -8,7 +8,9 @@ import numpy as np
 from flask import Flask, json, request
 from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
-
+import ast
+from gravity_util import find_gravity_data
+from gaia import gaia_args_verify
 from gaia_util import gaia_match
 
 api = Flask(__name__)
@@ -16,7 +18,7 @@ api = Flask(__name__)
 CORS(api)
 api.debug = True
 
-
+#test
 @api.before_request
 def resolve_request_body() -> None:
     ds = [request.args, request.form]
@@ -110,6 +112,16 @@ def get_data():
         filters = json.loads(request.args['filters'])
         iSkip = get_iSkip(age, metallicity)
         return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
+@api.route("/gravity", methods=["GET"])
+def get_data():
+    tb = sys.exc_info()[2]
+    try:
+        mass_ratio = float(request.args['ratioMass'])
+        total_mass = float(request.args['totalMass'])
+        return json.dumps({'data': find_gravity_data(mass_ratio, total_mass)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
