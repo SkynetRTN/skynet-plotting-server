@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 import numpy as np
 import ast
-
+from gravity_util import find_gravity_data
 from gaia import gaia_args_verify
 from gaia_util import gaia_match
 
