@@ -1,18 +1,14 @@
-from flask_cors import CORS
-import sys
 import os
-from os import error
 import sqlite3
+import sys
 import traceback
-from flask import Flask, json, request, render_template
+from os import error
 
-from sklearn.metrics import rand_score
-from werkzeug.utils import secure_filename
-from werkzeug.datastructures import CombinedMultiDict, MultiDict
 import numpy as np
-import ast
+from flask import Flask, json, request
+from flask_cors import CORS
+from werkzeug.datastructures import CombinedMultiDict, MultiDict
 
-from gaia import gaia_args_verify
 from gaia_util import gaia_match
 
 api = Flask(__name__)
