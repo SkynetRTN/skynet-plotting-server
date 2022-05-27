@@ -12,6 +12,8 @@ import ast
 from gravity_util import find_gravity_data
 from gaia import gaia_args_verify
 from gaia_util import gaia_match
+from plotligo_trimmed import perform_whitening_on_file
+
 
 api = Flask(__name__)
 
@@ -126,11 +128,14 @@ def get_gravity():
 
 @api.route("/gravfile", methods=["POST"])
 def upload_file():
-    upload_folder = '/temp-grav-uploaded-data'
+    upload_folder = 'temp-grav-data'
     print("request.files :" + str(request.files))
-    file = request.files.get('file')
+    filename = request.args.get("filename")
+    print(filename)
+    file = request.files['file']
     print("file:" + str(file))
-    #file.save(os.path.join(upload_folder, file.file_name))
+    file.save(os.path.join(upload_folder, "temp-file.hdf5"))
+    print(perform_whitening_on_file(os.path.join(upload_folder, "temp-file.hdf5")))
     return json.dumps("sucess")
 
 
