@@ -22,13 +22,11 @@ api.debug = True
 @api.before_request
 def resolve_request_body() -> None:
     ds = [request.args, request.form]
-
     body = request.get_json()
     if body:
         ds.append(MultiDict(body.items()))
 
     request.args = CombinedMultiDict(ds)
-
 
 cols = [
     "junk",
@@ -124,6 +122,17 @@ def get_gravity():
         return json.dumps({'data': find_gravity_data(mass_ratio, total_mass)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
+
+@api.route("/gravfile", methods=["POST"])
+def upload_file():
+    upload_folder = '/temp-grav-uploaded-data'
+    print("request.files :" + str(request.files))
+    file = request.files.get('file')
+    print("file:" + str(file))
+    #file.save(os.path.join(upload_folder, file.file_name))
+    return json.dumps("sucess")
+
 
 
 @api.route("/gaia", methods=["POST"])
