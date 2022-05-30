@@ -127,16 +127,12 @@ def get_gravity():
 
 
 @api.route("/gravfile", methods=["POST"])
-def upload_file():
+def whiten_gravdata():
     upload_folder = 'temp-grav-data'
-    print("request.files :" + str(request.files))
-    filename = request.args.get("filename")
-    print(filename)
     file = request.files['file']
-    print("file:" + str(file))
     file.save(os.path.join(upload_folder, "temp-file.hdf5"))
-    print(perform_whitening_on_file(os.path.join(upload_folder, "temp-file.hdf5")))
-    return json.dumps("sucess")
+    data = perform_whitening_on_file(os.path.join(upload_folder, "temp-file.hdf5"))
+    return json.dumps({'data': data.tolist()})
 
 
 

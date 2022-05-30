@@ -95,11 +95,11 @@ def perform_whitening_on_file(file_name):
         
         # final product here
         strain_whitenbp = filtfilt(bb, ab, strain_whiten) / normalization
-        return time, strain_whitenbp
+        return np.concatenate((time.reshape(-1,1), strain_whitenbp.reshape(-1,1)), axis=1)
 
-path = 'temp-grav-data'
-file_name = 'H-H1_LOSC_4_V2-1126259446-32.hdf5'
-print(perform_whitening_on_file(path + '/' + file_name))
+# path = 'temp-grav-data'
+# file_name = 'H-H1_LOSC_4_V2-1126259446-32.hdf5'
+# print(perform_whitening_on_file(path + '/' + file_name))
 
 
 
