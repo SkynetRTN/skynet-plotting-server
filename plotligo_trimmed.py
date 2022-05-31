@@ -27,7 +27,8 @@ def perform_whitening_on_file(file_name):
 
     # frequency band for bandpassing signal
     fband = [43.0, 400.0]
-    fs = 4096
+    fs = 16384
+ #   fs = 4096
     
     
     #----------------------------------------------------------------
@@ -42,7 +43,8 @@ def perform_whitening_on_file(file_name):
         print("Cannot find data files! - - " + file_name)
         print("Quitting.")
         quit()
-    
+
+    print("fs = " + str(fs_fake))
     #----------------------------------------------------------------
     # Grab time info and print some stuff
     #----------------------------------------------------------------

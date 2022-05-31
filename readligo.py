@@ -148,7 +148,6 @@ def read_hdf5(filename, readstrain=True):
     meta = dataFile['meta']
     gpsStart = meta['GPSstart'][()]
     fs = meta['Duration'][()]
-    print("fs = " + str(fs))
     dataFile.close()
     return strain, gpsStart, ts, qmask, shortnameList, injmask, injnameList, fs
 
