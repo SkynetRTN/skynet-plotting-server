@@ -1,11 +1,7 @@
 # Standard python numerical analysis imports:
 import numpy as np
-from scipy import signal
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
-import h5py
-import json
-
 import matplotlib.mlab as mlab
 
 # LIGO-specific readligo.py 
