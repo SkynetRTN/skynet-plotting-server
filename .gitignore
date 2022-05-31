@@ -5,3 +5,4 @@ __pycache__
 *.pyc
 .python-version
 gaia_clusters.sqlite
+.idea
