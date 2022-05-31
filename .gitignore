@@ -7,3 +7,4 @@ __pycache__
 gaia_clusters.sqlite
 *.csv
 .idea/*
+temp-grav-data/*.hdf5
