@@ -7,13 +7,10 @@ galactic clusters
 Usage: gaia_clusters_query.py RA(h|hh:mm:ss) Dec(d|+dd:mm:ss) [r(arcmins)]
 """
 
-from copy import error
-import numbers
+from os import error
 import sqlite3
 import sys
-
 from numpy import arcsin, cos, deg2rad, rad2deg, sin
-
 
 def gaia_args_verify(args: list):
     error_message = ""

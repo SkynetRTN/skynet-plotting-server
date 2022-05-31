@@ -11,4 +11,4 @@ platformdirs==2.4.1
 tomli==1.2.3
 typing_extensions==4.0.1
 Werkzeug==2.0.2
-grispy ==0.2.0
+scikit-learn==1.0.2

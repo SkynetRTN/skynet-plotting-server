@@ -1,36 +1,31 @@
-import sys
 import os
-from os import error
 import sqlite3
+import sys
 import traceback
-from flask import Flask, json, request, render_template
+from os import error
 
-from sklearn.metrics import rand_score
-from werkzeug.utils import secure_filename
-from werkzeug.datastructures import CombinedMultiDict, MultiDict
 import numpy as np
-import ast
-
-from gaia import gaia_args_verify
+from flask import Flask, json, request
+from werkzeug.datastructures import CombinedMultiDict, MultiDict
+from gravity_util import find_gravity_data
 from gaia_util import gaia_match
+from plotligo_trimmed import perform_whitening_on_file
+
 
 api = Flask(__name__)
 
-# from flask_cors import CORS
 # CORS(api)
 # api.debug = True
 
-
+#test
 @api.before_request
 def resolve_request_body() -> None:
     ds = [request.args, request.form]
-
     body = request.get_json()
     if body:
         ds.append(MultiDict(body.items()))
 
     request.args = CombinedMultiDict(ds)
-
 
 cols = [
     "junk",
@@ -116,6 +111,26 @@ def get_data():
         return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
+@api.route("/gravity", methods=["GET"])
+def get_gravity():
+    tb = sys.exc_info()[2]
+    try:
+        mass_ratio = float(request.args['ratioMass'])
+        total_mass = float(request.args['totalMass'])
+        return json.dumps({'data': find_gravity_data(mass_ratio, total_mass)})
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
+
+@api.route("/gravfile", methods=["POST"])
+def whiten_gravdata():
+    upload_folder = 'temp-grav-data'
+    file = request.files['file']
+    file.save(os.path.join(upload_folder, "temp-file.hdf5"))
+    data = perform_whitening_on_file(os.path.join(upload_folder, "temp-file.hdf5"))
+    return json.dumps({'data': data.tolist()})
+
 
 
 @api.route("/gaia", methods=["POST"])
