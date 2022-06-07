@@ -147,9 +147,10 @@ def read_hdf5(filename, readstrain=True):
     #-- Read the meta data
     meta = dataFile['meta']
     gpsStart = meta['GPSstart'][()]
-    fs = meta['Duration'][()]
+    duration = meta['Duration'][()]
+
     dataFile.close()
-    return strain, gpsStart, ts, qmask, shortnameList, injmask, injnameList, fs
+    return strain, gpsStart, ts, qmask, shortnameList, injmask, injnameList, duration
 
 def loaddata(filename, ifo=None, tvec=True, readstrain=True):
     """
@@ -178,7 +179,7 @@ def loaddata(filename, ifo=None, tvec=True, readstrain=True):
     if (file_ext.upper() == '.GWF'):
         strain, gpsStart, ts, qmask, shortnameList, injmask, injnameList = read_frame(filename, ifo, readstrain)
     else:
-        strain, gpsStart, ts, qmask, shortnameList, injmask, injnameList, fs = read_hdf5(filename, readstrain)
+        strain, gpsStart, ts, qmask, shortnameList, injmask, injnameList, dur = read_hdf5(filename, readstrain)
         
     #-- Create the time vector
     gpsEnd = gpsStart + len(qmask)
@@ -207,7 +208,8 @@ def loaddata(filename, ifo=None, tvec=True, readstrain=True):
         if isinstance(flag, bytes): flag = flag.decode("utf-8") 
         
         channel_dict[flag] = (injmask >> bit) & 1
-       
+
+    fs = 1/ts
     #-- Calculate the DEFAULT channel
     try:
         channel_dict['DEFAULT'] = ( channel_dict['DATA'] )
@@ -215,7 +217,7 @@ def loaddata(filename, ifo=None, tvec=True, readstrain=True):
         print("Warning: Failed to calculate DEFAULT data quality channel")
 
     if tvec:
-        return strain, time, channel_dict, fs
+        return strain, time, channel_dict, dur, fs
     else:
         return strain, meta, channel_dict
 
