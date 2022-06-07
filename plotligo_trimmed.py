@@ -37,14 +37,16 @@ def perform_whitening_on_file(file_name):
     #----------------------------------------------------------------
     try:
         # read in data from H1 and L1, if available:
-        strain, time, chan_dict, fs_fake = rl.loaddata(file_name)
+        strain, time, chan_dict, duration = rl.loaddata(file_name)
     except Exception as e:
         print(e)
         print("Cannot find data files! - - " + file_name)
         print("Quitting.")
         quit()
 
-    print("fs = " + str(fs_fake))
+    print("duration = " + str(duration))
+    if (duration == 4096):
+        raise Exception("Please upload a 32s file")
     #----------------------------------------------------------------
     # Grab time info and print some stuff
     #----------------------------------------------------------------
