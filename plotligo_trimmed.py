@@ -27,7 +27,8 @@ def perform_whitening_on_file(file_name):
 
     # frequency band for bandpassing signal
     fband = [43.0, 400.0]
-    fs = 4096
+    fs = 16384
+ #   fs = 4096
     
     
     #----------------------------------------------------------------
@@ -36,13 +37,17 @@ def perform_whitening_on_file(file_name):
     #----------------------------------------------------------------
     try:
         # read in data from H1 and L1, if available:
-        strain, time, chan_dict, fs_fake = rl.loaddata(file_name)
+        strain, time, chan_dict, duration, file_fs = rl.loaddata(file_name)
     except Exception as e:
         print(e)
         print("Cannot find data files! - - " + file_name)
         print("Quitting.")
         quit()
-    
+
+    if (duration == 4096):
+        raise Exception("Please upload a 32s file")
+    if (file_fs != 16384):
+        raise Exception("Please upload a 16Khz file")
     #----------------------------------------------------------------
     # Grab time info and print some stuff
     #----------------------------------------------------------------
