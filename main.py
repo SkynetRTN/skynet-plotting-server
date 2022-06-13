@@ -4,6 +4,8 @@ import sys
 import traceback
 from os import error
 
+from tempfile import mkdtemp
+from shutil import rmtree
 import numpy as np
 from flask import Flask, json, request
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
@@ -125,17 +127,21 @@ def get_gravity():
 
 @api.route("/gravfile", methods=["POST"])
 def whiten_gravdata():
-    upload_folder = 'temp-grav-data'
+    # upload_folder = 'temp-grav-data'
+    tempdir = mkdtemp()
     try:
         file = request.files['file']
-        file.save(os.path.join(upload_folder, "temp-file.hdf5"))
-        data = perform_whitening_on_file(os.path.join(upload_folder, "temp-file.hdf5"))
+        file.save(os.path.join(tempdir, "temp-file.hdf5"))
+        data = perform_whitening_on_file(os.path.join(tempdir, "temp-file.hdf5"))
         midpoint = np.round(data.shape[0]/2.0)
         buffer = np.ceil(data.shape[0] * 0.05)
         center_of_data = data[int(midpoint-buffer): int(midpoint+buffer)]
         return json.dumps({'data': center_of_data.tolist()})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+    finally:
+        rmtree(tempdir, ignore_errors=True)
+
 
 
 
