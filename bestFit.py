@@ -7,6 +7,10 @@ try:
 except ImportError as e:
     print(e)
 
+"""
+    Additional models can easily be added
+    making this a generic tool.
+"""
 
 class InitialGuess:
     def __init__(self, m, a, b):
@@ -75,7 +79,7 @@ class Model:
 def getBestFit(model, x, y, guess):
     return curve_fit(model, x, y, \
         p0=[guess.m, guess.a, guess.b], \
-        bounds=([-10, -3, -2], [20, 1, 1]))
+        bounds=([-100, -100, -100], [100, 100, 100]))
 
 
 def fitToData(xdata, ydata, filters, params):
