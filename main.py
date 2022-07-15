@@ -15,6 +15,7 @@ from gravity_util import find_gravity_data
 from gaia import gaia_args_verify
 from gaia_util import gaia_match
 from plotligo_trimmed import perform_whitening_on_file
+from bestFit import fitToData
 
 
 api = Flask(__name__)
@@ -117,6 +118,7 @@ def get_data():
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
+
 @api.route("/gravity", methods=["GET"])
 def get_gravity():
     tb = sys.exc_info()[2]
@@ -146,6 +148,19 @@ def whiten_gravdata():
         rmtree(tempdir, ignore_errors=True)
 
 
+
+@api.route("/transient", methods=["POST"])
+def get_transient_bestfit():
+    tb = sys.exc_info()[2]
+    try:
+        xdata = request.args['xdata']
+        ydata = request.args['ydata']
+        filters = request.args['filters']
+        guess = request.args['params']
+        popt = fitToData(xdata, ydata, filters, guess)
+        return json.dumps({'popt': list(popt)})
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
 @api.route("/gaia", methods=["POST"])
