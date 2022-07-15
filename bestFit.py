@@ -59,15 +59,15 @@ class Model:
         self.ref_wavelength = self._FILTER_WAVELENGTH[ref_fltr]
         self.referenceX = x
 
-    def _zero_point_list(self, d):
+    def zero_point_list(self, d):
         return [self._FILTER_ZERO_POINT[d[key]] for key in d.keys()]
 
-    def _wavelength_list(self, d):
+    def wavelength_list(self, d):
         return [self._FILTER_WAVELENGTH[d[key]] for key in d.keys()]       
 
     def get_model(self, x, m, a, b):
-        zero_point = np.array(self._zero_point_list(self.data_fltrs))
-        wavelength = np.array(self._wavelength_list(self.data_fltrs))
+        zero_point = np.array(self.zero_point_list(self.data_fltrs))
+        wavelength = np.array(self.wavelength_list(self.data_fltrs))
 
         eq_zp = np.log10(self.ref_zero_point / zero_point)
         eq_time = a * np.log10(x / self.referenceX)
@@ -79,13 +79,16 @@ class Model:
 def getBestFit(model, x, y, guess):
     return curve_fit(model, x, y, \
         p0=[guess.m, guess.a, guess.b], \
-        bounds=([-100, -100, -100], [100, 100, 100]))
+        bounds=([-30, -3, -2], [30, 1, 1]))
 
 
 def fitToData(xdata, ydata, filters, params):
 
-    guess = InitialGuess(params['m'], params['a'], params['b'])
-    model = Model(params['filter'], filters, params['t'])
+    try:
+        guess = InitialGuess(params['m'], params['a'], params['b'])
+        model = Model(params['filter'], filters, params['t'])
+    except:
+        return []
 
     # optimal, covariance
     popt, pcov = getBestFit(model.get_model, xdata, ydata, guess)
