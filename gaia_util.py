@@ -72,7 +72,7 @@ def gaia_get_data(range):
         conn.create_function('radians', 1, math.radians)
         conn.create_function('pow', 2, math.pow)
         sources = cur.execute(
-            'select * from (select * from gedr3dis where ' + where +
+            'select * from (select * from gdr3dis where ' + where +
             ') where asin(sqrt(pow(sin(radians(dec - ?)/2), 2) + '
             'pow(sin(radians(ra - ?)/2), 2)*cos(radians(dec))*?)) <= ?',
             args + (dec, ra, cos(deg2rad(dec)), deg2rad(r)/2)
