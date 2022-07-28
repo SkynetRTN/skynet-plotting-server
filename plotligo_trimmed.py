@@ -2,6 +2,7 @@
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
+from gwpy.timeseries import TimeSeries
 import matplotlib.mlab as mlab
 
 # LIGO-specific readligo.py 
@@ -23,10 +24,11 @@ def whiten(strain, interp_psd, dt):
     return white_ht
 
 #does all the work
-def perform_whitening_on_file(file_name):
+def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
 
     # frequency band for bandpassing signal
     fband = [43.0, 400.0]
+    # fband = [35.0, 350.0]
     fs = 16384
  #   fs = 4096
     
@@ -69,24 +71,15 @@ def perform_whitening_on_file(file_name):
     #
     # They are an estimate of the "strain-equivalent noise" of the detectors versus frequency, which limit the ability of the detectors to identify GW signals.
     
-    make_psd = 1
-    if make_psd:
+
+    if whiten_data:
         # number of sample for the fast fourier transform:
         NFFT = 4*fs
         Pxx, freqs = mlab.psd(strain, Fs = fs, NFFT = NFFT)
     
         # We will use interpolations of the ASDs computed above for whitening:
         psd = interp1d(freqs, Pxx)
-    
-    #----------------------------------------------------------------
-    # Whitening bysuppressing the extra noise at low frequencies 
-    # and a the spectral lines. Also, bandpass the high frequency noise.
-    #----------------------------------------------------------------
-    
-    
-    
-    whiten_data = 1
-    if whiten_data:
+
         # now whiten the data from H1 and L1, and the template (use H1 PSD):
         strain_whiten = whiten(strain,psd,dt)
         
@@ -98,6 +91,24 @@ def perform_whitening_on_file(file_name):
         strain_whitenbp = filtfilt(bb, ab, strain_whiten) / normalization
         return np.concatenate((time.reshape(-1,1), strain_whitenbp.reshape(-1,1)), axis=1)
 
+    # create_spectrogram = 1
+    if plot_spectrogram:
+        deltat = 0.3  # hardcoded to plot 5 seconds centered on merger - can change
+
+        ## Using GWPY to make graph
+        strain_timeseries = TimeSeries(strain, times=time)
+
+        hq = strain_timeseries.q_transform(outseg=(tevent - deltat, tevent + deltat), norm=False)
+        fig = hq.plot()
+        # vmin=0, vmax=25
+        ax = fig.gca()
+        fig.colorbar(label="Energy")
+        ax.set(xlim=(tevent - deltat, tevent + deltat))
+        ax.grid(False)
+        ax.set_yscale('log')
+        fig.show()
+        return fig
+        # fig.savefig('specplot_withmodel.png')
 # path = 'temp-grav-data'
 # file_name = 'H-H1_LOSC_4_V2-1126259446-32.hdf5'
 # print(perform_whitening_on_file(path + '/' + file_name))
