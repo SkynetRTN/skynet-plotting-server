@@ -39,7 +39,7 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
     #----------------------------------------------------------------
     try:
         # read in data from H1 and L1, if available:
-        strain, time, chan_dict, duration, file_fs = rl.loaddata(file_name)
+        strain, time, chan_dict, duration, file_fs, gpsStart, gpsEnd = rl.loaddata(file_name)
     except Exception as e:
         print(e)
         print("Cannot find data files! - - " + file_name)
@@ -98,17 +98,23 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         ## Using GWPY to make graph
         strain_timeseries = TimeSeries(strain, times=time)
 
-        hq = strain_timeseries.q_transform(outseg=(tevent - deltat, tevent + deltat), norm=False)
+        midpoint = (gpsStart + gpsEnd)/2
+        window = (gpsEnd-gpsStart)*0.1
+
+        hq = strain_timeseries.q_transform(outseg=(midpoint-window, midpoint+window), norm=False)
         fig = hq.plot()
         # vmin=0, vmax=25
         ax = fig.gca()
         fig.colorbar(label="Energy")
-        ax.set(xlim=(tevent - deltat, tevent + deltat))
+        ax.set(xlim=(midpoint-window, midpoint+window))
         ax.grid(False)
         ax.set_yscale('log')
-        fig.show()
+        # fig.show()
         return fig
         # fig.savefig('specplot_withmodel.png')
+
+figor = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
+figor.savefig("specplot.png")
 # path = 'temp-grav-data'
 # file_name = 'H-H1_LOSC_4_V2-1126259446-32.hdf5'
 # print(perform_whitening_on_file(path + '/' + file_name))
