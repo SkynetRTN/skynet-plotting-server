@@ -162,17 +162,6 @@ def get_sepctrogram():
     finally:
         rmtree(tempdir, ignore_errors=True)
 
-########
-# Testing to see if the image can be sent
-@api.route("/gravprotestpng", methods=["GET"])
-def get_test_image():
-    try:
-        figure = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
-        figure.savefig("specplot2.png")
-        return send_file("specplot2.png", mimetype="image/png")
-    except Exception as e:
-        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
-#########
 
 @api.route("/transient", methods=["POST"])
 def get_transient_bestfit():

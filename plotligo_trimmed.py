@@ -4,6 +4,8 @@ from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
 from gwpy.timeseries import TimeSeries
 import matplotlib.mlab as mlab
+import matplotlib
+matplotlib.use('Agg')
 
 # LIGO-specific readligo.py 
 import readligo as rl
@@ -99,7 +101,7 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         strain_timeseries = TimeSeries(strain, times=time)
 
         midpoint = (gpsStart + gpsEnd)/2
-        window = (gpsEnd-gpsStart)*0.1
+        window = (gpsEnd-gpsStart)*0.05
 
         hq = strain_timeseries.q_transform(outseg=(midpoint-window, midpoint+window), norm=False)
         fig = hq.plot()
