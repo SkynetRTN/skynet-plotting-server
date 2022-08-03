@@ -155,8 +155,12 @@ def get_sepctrogram():
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
         figure = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
+        xbounds = figure.gca().get_xlim()
+        ybounds = figure.gca().get_ylim()
         figure.savefig(os.path.join(tempdir, "specplot.png"))
-        return send_file(os.path.join(tempdir, "specplot.png"), mimetype='image/png')
+        ret = send_file(os.path.join(tempdir, "specplot.png"), mimetype='image/png')
+        ret.headers['bounds'] = "xbounds-"+str(xbounds)+"__ybounds-"+str(ybounds)
+        return ret
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:

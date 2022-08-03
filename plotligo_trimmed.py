@@ -111,12 +111,13 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         ax.set(xlim=(midpoint-window, midpoint+window))
         ax.grid(False)
         ax.set_yscale('log')
+
         # fig.show()
         return fig
         # fig.savefig('specplot_withmodel.png')
 
 figor = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
-figor.savefig("specplot.png")
+# figor.savefig("specplot.png")
 # path = 'temp-grav-data'
 # file_name = 'H-H1_LOSC_4_V2-1126259446-32.hdf5'
 # print(perform_whitening_on_file(path + '/' + file_name))
