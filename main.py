@@ -11,7 +11,7 @@ from flask import Flask, json, request, send_file
 from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 import ast
-from gravity_util import find_gravity_data
+from gravity_util import find_strain_model_data, find_frequency_model_data
 from gaia import gaia_args_verify
 from gaia_util import gaia_match
 from plotligo_trimmed import get_data_from_file
@@ -125,7 +125,7 @@ def get_gravity():
     try:
         mass_ratio = float(request.args['ratioMass'])
         total_mass = float(request.args['totalMass'])
-        return json.dumps({'data': find_gravity_data(mass_ratio, total_mass)})
+        return json.dumps({'strain_model': find_strain_model_data(mass_ratio, total_mass), 'freq_model': find_frequency_model_data(mass_ratio, total_mass)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
