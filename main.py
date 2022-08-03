@@ -159,7 +159,8 @@ def get_sepctrogram():
         ybounds = figure.gca().get_ylim()
         figure.savefig(os.path.join(tempdir, "specplot.png"))
         ret = send_file(os.path.join(tempdir, "specplot.png"), mimetype='image/png')
-        ret.headers['bounds'] = "xbounds-"+str(xbounds)+"__ybounds-"+str(ybounds)
+        ret.headers['bounds'] = str(xbounds)+' '+str(ybounds)
+        ret.headers['Access-Control-Expose-Headers'] = 'bounds'
         return ret
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
