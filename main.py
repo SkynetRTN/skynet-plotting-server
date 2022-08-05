@@ -8,11 +8,8 @@ from tempfile import mkdtemp
 from shutil import rmtree
 import numpy as np
 from flask import Flask, json, request, send_file
-from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
-import ast
 from gravity_util import find_strain_model_data, find_frequency_model_data
-from gaia import gaia_args_verify
 from gaia_util import gaia_match
 from plotligo_trimmed import get_data_from_file
 from bestFit import fitToData
@@ -20,8 +17,8 @@ from bestFit import fitToData
 
 api = Flask(__name__)
 
-CORS(api)
-api.debug = True
+# CORS(api)
+# api.debug = True
 
 #test
 @api.before_request
