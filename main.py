@@ -7,11 +7,11 @@ from os import error
 from tempfile import mkdtemp
 from shutil import rmtree
 import numpy as np
-from flask import Flask, json, request
+from flask import Flask, json, request, send_file
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
-from gravity_util import find_gravity_data
+from gravity_util import find_strain_model_data, find_frequency_model_data
 from gaia_util import gaia_match
-from plotligo_trimmed import perform_whitening_on_file
+from plotligo_trimmed import get_data_from_file
 from bestFit import fitToData
 
 
@@ -122,19 +122,19 @@ def get_gravity():
     try:
         mass_ratio = float(request.args['ratioMass'])
         total_mass = float(request.args['totalMass'])
-        return json.dumps({'data': find_gravity_data(mass_ratio, total_mass)})
+        return json.dumps({'strain_model': find_strain_model_data(mass_ratio, total_mass), 'freq_model': find_frequency_model_data(mass_ratio, total_mass)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
 @api.route("/gravfile", methods=["POST"])
-def whiten_gravdata():
+def upload_process_gravdata():
     # upload_folder = 'temp-grav-data'
     tempdir = mkdtemp()
     try:
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        data = perform_whitening_on_file(os.path.join(tempdir, "temp-file.hdf5"))
+        data = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
         midpoint = np.round(data.shape[0]/2.0)
         buffer = np.ceil(data.shape[0] * 0.05)
         center_of_data = data[int(midpoint-buffer): int(midpoint+buffer)]
@@ -144,6 +144,25 @@ def whiten_gravdata():
     finally:
         rmtree(tempdir, ignore_errors=True)
 
+
+@api.route("/gravprofile", methods=["POST"])
+def get_sepctrogram():
+    tempdir = mkdtemp()
+    try:
+        file = request.files['file']
+        file.save(os.path.join(tempdir, "temp-file.hdf5"))
+        figure = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
+        xbounds = figure.gca().get_xlim()
+        ybounds = figure.gca().get_ylim()
+        figure.savefig(os.path.join(tempdir, "specplot.png"))
+        ret = send_file(os.path.join(tempdir, "specplot.png"), mimetype='image/png')
+        ret.headers['bounds'] = str(xbounds)+' '+str(ybounds)
+        ret.headers['Access-Control-Expose-Headers'] = 'bounds'
+        return ret
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+    finally:
+        rmtree(tempdir, ignore_errors=True)
 
 
 @api.route("/transient", methods=["POST"])

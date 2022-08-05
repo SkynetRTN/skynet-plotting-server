@@ -217,7 +217,7 @@ def loaddata(filename, ifo=None, tvec=True, readstrain=True):
         print("Warning: Failed to calculate DEFAULT data quality channel")
 
     if tvec:
-        return strain, time, channel_dict, dur, fs
+        return strain, time, channel_dict, dur, fs, gpsStart, gpsEnd
     else:
         return strain, meta, channel_dict
 
