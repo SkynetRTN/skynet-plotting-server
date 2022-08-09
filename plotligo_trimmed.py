@@ -45,7 +45,7 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
     except Exception as e:
         print(e)
         print("Cannot find data files! - - " + file_name)
-        print("Quitting.")
+        # print("Quitting.")
         # quit()
 
     if (duration == 4096):
@@ -116,7 +116,7 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         return fig
         # fig.savefig('specplot_withmodel.png')
 
-figor = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
+# figor = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
 # figor.savefig("specplot.png")
 # path = 'temp-grav-data'
 # file_name = 'H-H1_LOSC_4_V2-1126259446-32.hdf5'
