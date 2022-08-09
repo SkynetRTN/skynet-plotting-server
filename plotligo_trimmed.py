@@ -46,7 +46,7 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         print(e)
         print("Cannot find data files! - - " + file_name)
         print("Quitting.")
-        quit()
+        # quit()
 
     if (duration == 4096):
         raise Exception("Please upload a 32s file")
