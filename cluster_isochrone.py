@@ -26,6 +26,32 @@ cols = [
     "junk",
 ]
 
+beta_cols = [
+    "junk",
+    "junk",
+    "U",
+    "B",
+    "V",
+    "R",
+    "I",
+    "uprime",
+    "gprime",
+    "rprime",
+    "iprime",
+    "zprime",
+    "J",
+    "H",
+    "Ks",
+    "W1",
+    "W2",
+    "W3",
+    "W4",
+    "G",
+    "GBP",
+    "GRP"
+    "junk",
+]
+
 
 def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
 
@@ -80,7 +106,7 @@ def find_data_in_files_beta(age: float, metallicity: float, filters: list) -> li
     # format data
     try:
         def get_col(number: int):
-            return data[:, cols.index(filters[number])]
+            return data[:, beta_cols.index(filters[number])]
 
         r_data = list(
             zip([round(a - b, 4)
