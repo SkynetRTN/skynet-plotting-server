@@ -11,6 +11,8 @@ from flask import Flask, json, request
 from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 import ast
+
+from cluster_isochrone import get_iSkip, find_data_in_files
 from gravity_util import find_gravity_data
 from gaia import gaia_args_verify
 from gaia_util import gaia_match
@@ -33,81 +35,21 @@ def resolve_request_body() -> None:
 
     request.args = CombinedMultiDict(ds)
 
-cols = [
-    "junk",
-    "junk",
-    "junk",
-    "U",
-    "B",
-    "V",
-    "R",
-    "I",
-    "Jx",
-    "Hx",
-    "Kx",
-    "uprime",
-    "gprime",
-    "rprime",
-    "iprime",
-    "zprime",
-    "J",  # TODO: make these distinct
-    "H",
-    "Ks",
-    "junk",
-]
-
-
-def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
-
-    # attempt to retrieve data from files
-    try:
-        data = np.load(
-            os.path.join(
-                os.path.dirname(__file__),
-                "iso-npy-data",
-                f"Girardi_{age:.2f}_{metallicity:.2f}.npy",
-            )
-        )
-
-    except FileNotFoundError:
-        raise ValueError({"error": "Requested data not found"})
-    # format data
-    try:
-
-        def get_col(number: int):
-            return data[:, cols.index(filters[number])]
-
-        r_data = list(
-            zip([round(a - b, 4)
-                for a, b in zip(get_col(0), get_col(1))], get_col(2))
-        )
-
-        # r_data = list(zip(*[data[:, cols.index(i)] for i in filters]))
-    except:
-        raise error({"error": "Requested filter not found"})
-    # return
-    return r_data
-
-
-def get_iSkip(age, metallicity):
-    iSkip_file = os.path.join(os.path.dirname(__file__), 'iSkip.sqlite')
-    conn = sqlite3.connect(iSkip_file)
-    result = -1
-    try:
-        cur = conn.cursor()
-        sources = cur.execute(
-            'SELECT * FROM iSkip_forsql WHERE age = ? AND metallicity = ?', [age, metallicity]).fetchall()
-        if sources != []:
-            result = sources[0][2]
-    except:
-        raise error({"error": "Cannot Pull from iSkip Database"})
-    finally:
-        conn.close()
-    return result
-
-
 @api.route("/isochrone", methods=["GET"])
 def get_data():
+    tb = sys.exc_info()[2]
+    try:
+        age = float(request.args['age'])
+        metallicity = float(request.args['metallicity'])
+        filters = json.loads(request.args['filters'])
+        iSkip = get_iSkip(age, metallicity)
+        return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
+
+@api.route("/isochrone-beta", methods=["GET"])
+def get_data_beta():
     tb = sys.exc_info()[2]
     try:
         age = float(request.args['age'])
