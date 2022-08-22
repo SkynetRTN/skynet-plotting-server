@@ -20,10 +20,11 @@ from bestFit import fitToData
 
 api = Flask(__name__)
 
+#test
+# from flask_cors import CORS
 # CORS(api)
 # api.debug = True
 
-#test
 @api.before_request
 def resolve_request_body() -> None:
     ds = [request.args, request.form]
