@@ -41,14 +41,14 @@ beta_cols = [
     "zprime",
     "J",
     "H",
-    "Ks",
+    "K",
     "W1",
     "W2",
     "W3",
     "W4",
     "G",
     "GBP",
-    "GRP"
+    "GRP",
     "junk",
 ]
 
@@ -86,7 +86,6 @@ def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
 
 
 def find_data_in_files_beta(age: float, metallicity: float, filters: list) -> list:
-
     # attempt to retrieve data from files
     try:
         data = np.load(
@@ -114,7 +113,7 @@ def find_data_in_files_beta(age: float, metallicity: float, filters: list) -> li
         )
 
         # r_data = list(zip(*[data[:, cols.index(i)] for i in filters]))
-    except:
+    except Exception as e:
         raise error({"error": "Requested filter not found"})
     # return
     return r_data
