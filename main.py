@@ -12,7 +12,6 @@ from werkzeug.datastructures import CombinedMultiDict, MultiDict
 from gravity_util import find_strain_model_data, find_frequency_model_data
 import ast
 from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files_beta
-from gravity_util import find_gravity_data
 from gaia import gaia_args_verify
 from gaia_util import gaia_match
 from plotligo_trimmed import get_data_from_file
