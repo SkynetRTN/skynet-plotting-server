@@ -102,7 +102,7 @@ def main():
         # formula, which is more accurate for small distances
         cur = conn.cursor()
         sources = cur.execute(
-            'select * from (select * from gedr3dis where ' + where +
+            'select * from (select * from gdr3dis where ' + where +
             ') where asin(sqrt(pow(sin(radians(dec - ?)/2), 2) + '
             'pow(sin(radians(ra - ?)/2), 2)*cos(radians(dec))*?)) <= ?',
             args + (dec, ra, cos(deg2rad(dec)), deg2rad(r)/2)
