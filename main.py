@@ -1,3 +1,4 @@
+import base64
 import os
 import sqlite3
 import sys
@@ -8,6 +9,7 @@ from tempfile import mkdtemp
 from shutil import rmtree
 import numpy as np
 from flask import Flask, json, request, send_file
+from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 from gravity_util import find_strain_model_data, find_frequency_model_data
 from gaia_util import gaia_match
@@ -17,8 +19,8 @@ from bestFit import fitToData
 
 api = Flask(__name__)
 
-# CORS(api)
-# api.debug = True
+CORS(api)
+api.debug = True
 
 #test
 @api.before_request
@@ -151,14 +153,15 @@ def get_sepctrogram():
     try:
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        figure = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
+        figure, spec_array = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
         xbounds = figure.gca().get_xlim()
         ybounds = figure.gca().get_ylim()
         figure.savefig(os.path.join(tempdir, "specplot.png"))
-        ret = send_file(os.path.join(tempdir, "specplot.png"), mimetype='image/png')
-        ret.headers['bounds'] = str(xbounds)+' '+str(ybounds)
-        ret.headers['Access-Control-Expose-Headers'] = 'bounds'
-        return ret
+
+        with open(os.path.join(tempdir, "specplot.png"), "rb") as image2string:
+            encoded_image = base64.b64encode(image2string.read())
+
+        return json.dumps({'bounds': str(xbounds)+' '+str(ybounds), 'spec_array': np.asarray(spec_array).tolist(), 'image': str(encoded_image)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:

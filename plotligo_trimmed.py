@@ -1,5 +1,6 @@
 # Standard python numerical analysis imports:
 import numpy as np
+import base64
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
 from gwpy.timeseries import TimeSeries
@@ -113,11 +114,21 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         ax.set_yscale('log')
 
         # fig.show()
-        return fig
+        return fig, hq
         # fig.savefig('specplot_withmodel.png')
 
-figor = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
+# figor, hq = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
+# print(hq)
+# print(np.asarray(hq))
+# print(np.asarray(hq).tolist())
+# print(type(hq))
+# # print(bytearray(hq))
 # figor.savefig("specplot.png")
+# with open("specplot.png", "rb") as image2string:
+#     converted_string = base64.b64encode(image2string.read())
+#     string = image2string.read()
+# print(string)
+
 # path = 'temp-grav-data'
 # file_name = 'H-H1_LOSC_4_V2-1126259446-32.hdf5'
 # print(perform_whitening_on_file(path + '/' + file_name))
