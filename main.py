@@ -11,7 +11,7 @@ import numpy as np
 from flask import Flask, json, request, send_file
 from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
-from gravity_util import find_strain_model_data, find_frequency_model_data
+from gravity_util import find_strain_model_data, find_frequency_model_data, extract_model_from_spectrogram
 from gaia_util import gaia_match
 from plotligo_trimmed import get_data_from_file
 from bestFit import fitToData
@@ -167,6 +167,10 @@ def get_sepctrogram():
     finally:
         rmtree(tempdir, ignore_errors=True)
 
+@api.route("/gravextract", methods=["POST"])
+def extract_gravity():
+    extract_model_from_spectrogram()
+    return
 
 @api.route("/transient", methods=["POST"])
 def get_transient_bestfit():
