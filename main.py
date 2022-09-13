@@ -13,19 +13,20 @@ from werkzeug.datastructures import CombinedMultiDict, MultiDict
 import ast
 
 from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files_beta
+from cluster_pro_scraper import scraper_query_object
 from gravity_util import find_gravity_data
 from gaia import gaia_args_verify
 from gaia_util import gaia_match
 from plotligo_trimmed import perform_whitening_on_file
 from bestFit import fitToData
 
-
 api = Flask(__name__)
 
 CORS(api)
 api.debug = True
 
-#test
+
+# test
 @api.before_request
 def resolve_request_body() -> None:
     ds = [request.args, request.form]
@@ -34,6 +35,7 @@ def resolve_request_body() -> None:
         ds.append(MultiDict(body.items()))
 
     request.args = CombinedMultiDict(ds)
+
 
 @api.route("/isochrone", methods=["GET"])
 def get_data():
@@ -80,15 +82,14 @@ def whiten_gravdata():
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
         data = perform_whitening_on_file(os.path.join(tempdir, "temp-file.hdf5"))
-        midpoint = np.round(data.shape[0]/2.0)
+        midpoint = np.round(data.shape[0] / 2.0)
         buffer = np.ceil(data.shape[0] * 0.05)
-        center_of_data = data[int(midpoint-buffer): int(midpoint+buffer)]
+        center_of_data = data[int(midpoint - buffer): int(midpoint + buffer)]
         return json.dumps({'data': center_of_data.tolist()})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:
         rmtree(tempdir, ignore_errors=True)
-
 
 
 @api.route("/transient", methods=["POST"])
@@ -120,6 +121,16 @@ def get_gaia():
         return json.dumps(result)
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
+
+@api.route("/location-query", methods=["get"])
+def get_object_location():
+    tb = sys.exc_info()[2]
+    try:
+        object = request.args['object']
+    except:
+        raise error({'error': 'Object input invalid type'})
+    return json.dumps(scraper_query_object(object))
 
 
 def main():
