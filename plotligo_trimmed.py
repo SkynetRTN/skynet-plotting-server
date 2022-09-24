@@ -116,8 +116,15 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         # fig.show()
         return fig, hq
         # fig.savefig('specplot_withmodel.png')
+from gravity_util import extract_model_from_spectrogram;
 
-# figor, hq = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
+figor, hq = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
+print(hq)
+figor.savefig("specplot_test.png")
+extracted_model = extract_model_from_spectrogram(1.175, 62.797, 1126259462.4, hq)
+fig = matplotlib.pyplot.figure(60)
+fig.gca().plot(extracted_model[:,0], extracted_model[:,1])
+fig.savefig("extraction_test.png")
 # print(hq)
 # print(np.asarray(hq))
 # print(np.asarray(hq).tolist())

@@ -169,6 +169,7 @@ def get_sepctrogram():
 
 @api.route("/gravextract", methods=["POST"])
 def extract_gravity():
+
     extract_model_from_spectrogram()
     return
 
