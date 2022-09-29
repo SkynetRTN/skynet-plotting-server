@@ -107,10 +107,9 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         ax.grid(False)
         ax.set_yscale('log')
 
-        # fig.show()
+
         return fig, hq
-        # fig.savefig('specplot_withmodel.png')
-from gravity_util import extract_model_from_spectrogram;
+
 
 # figor, hq = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
 # print(hq)
