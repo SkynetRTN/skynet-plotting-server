@@ -161,17 +161,13 @@ def get_sepctrogram():
         with open(os.path.join(tempdir, "specplot.png"), "rb") as image2string:
             encoded_image = base64.b64encode(image2string.read())
 
-        return json.dumps({'bounds': str(xbounds)+' '+str(ybounds), 'spec_array': np.asarray(spec_array).tolist(), 'image': str(encoded_image)})
+        return json.dumps({'image': str(encoded_image), 'bounds': str(xbounds)+' '+str(ybounds),
+                           'spec_array': np.asarray(spec_array).tolist(), 'x0': str(spec_array.x0),
+                           'dx': str(spec_array.dx), 'y0' : str(spec_array.y0), 'dy': str(spec_array.dy)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:
         rmtree(tempdir, ignore_errors=True)
-
-@api.route("/gravextract", methods=["POST"])
-def extract_gravity():
-
-    extract_model_from_spectrogram()
-    return
 
 @api.route("/transient", methods=["POST"])
 def get_transient_bestfit():

@@ -60,13 +60,7 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
     # the time sample interval (uniformly sampled!)
     dt = time[1] - time[0]
     
-    # Let's look at the data and print out some stuff:
-    # print('time: len, min, mean, max = ', \
-    #     len(time), time.min(), time.mean(), time.max() )
-    # print('strain: len, min, mean, max = ', \
-    #     len(strain), strain.min(),strain.mean(),strain.max())
-    
-    
+
     #----------------------------------------------------------------
     # Plot the Amplitude Spectral Density (ASD)
     #
@@ -118,78 +112,19 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         # fig.savefig('specplot_withmodel.png')
 from gravity_util import extract_model_from_spectrogram;
 
-figor, hq = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
-print(hq)
-figor.savefig("specplot_test.png")
-extracted_model = extract_model_from_spectrogram(1.175, 62.797, 1126259462.4, hq)
-fig = matplotlib.pyplot.figure(60)
-fig.gca().plot(extracted_model[:,0], extracted_model[:,1])
-fig.savefig("extraction_test.png")
+# figor, hq = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
 # print(hq)
-# print(np.asarray(hq))
-# print(np.asarray(hq).tolist())
-# print(type(hq))
-# # print(bytearray(hq))
-# figor.savefig("specplot.png")
-# with open("specplot.png", "rb") as image2string:
-#     converted_string = base64.b64encode(image2string.read())
-#     string = image2string.read()
-# print(string)
+# # print(hq.name)
+# # print(hq.x0)
+# # print(hq.dx)
+# # print(hq.dy)
+# # print(hq.y0)
+# # print(hq.yindex)
+# # print(hq.xindex)
+# figor.savefig("specplot_test.png")
+# extracted_model = extract_model_from_spectrogram(1.175, 62.797, 1126259462.4, hq)
+# fig = matplotlib.pyplot.figure(60)
+# fig.gca().plot(extracted_model[:,0], extracted_model[:,1])
+# fig.savefig("extraction_test.png")
 
-# path = 'temp-grav-data'
-# file_name = 'H-H1_LOSC_4_V2-1126259446-32.hdf5'
-# print(perform_whitening_on_file(path + '/' + file_name))
-
-
-
-# #----------------------------------------------------------------
-# # Audio files
-# #----------------------------------------------------------------
-#
-# # make wav (sound) files from the whitened data, +-2s around the event.
-# from scipy.io import wavfile
-#
-# # function to keep the data within integer limits, and write to wavfile:
-# def write_wavfile(filename,fs,data):
-#     d = np.int16(data/np.max(np.abs(data)) * 32767 * 0.9)
-#     wavfile.write(filename,int(fs), d)
-#
-# deltat_sound = 2. # seconds around the event
-#
-# # index into the strain time series for this time interval:
-# indxd = np.where((time >= tevent-deltat_sound) & (time < tevent+deltat_sound))
-#
-#
-# # # write the files:
-# # write_wavfile(eventname+"_H1_whitenbp.wav",int(fs), strain_H1_whitenbp[indxd])
-# # write_wavfile(eventname+"_L1_whitenbp.wav",int(fs), strain_L1_whitenbp[indxd])
-#
-#
-# # function that shifts frequency of a band-passed signal
-# def reqshift(data,fshift=100,sample_rate=4096):
-#     """Frequency shift the signal by constant
-#     """
-#     x = np.fft.rfft(data)
-#     T = len(data)/float(sample_rate)
-#     df = 1.0/T
-#     nbins = int(fshift/df)
-#     # print T,df,nbins,x.real.shape
-#     y = np.roll(x.real,nbins) + 1j*np.roll(x.imag,nbins)
-#     y[0:nbins]=0.
-#     z = np.fft.irfft(y)
-#     return z
-#
-# # parameters for frequency shift
-# # fs = 4096
-# # fshift = 400.
-# # speedup = 1.
-# # fss = int(float(fs)*float(speedup))
-# #
-# # # shift frequency of the data
-# # strain_H1_shifted = reqshift(strain_H1_whitenbp,fshift=fshift,sample_rate=fs)
-# # strain_L1_shifted = reqshift(strain_L1_whitenbp,fshift=fshift,sample_rate=fs)
-# #
-# # # write the files:
-# # write_wavfile(eventname+"_H1_shifted.wav",int(fs), strain_H1_shifted[indxd])
-# # write_wavfile(eventname+"_L1_shifted.wav",int(fs), strain_L1_shifted[indxd])
 
