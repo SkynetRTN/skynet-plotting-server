@@ -13,7 +13,7 @@ from werkzeug.datastructures import CombinedMultiDict, MultiDict
 import ast
 
 from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files_beta
-from cluster_pro_scraper import scraper_query_object, scraper_query_vizier_gaia
+from cluster_pro_scraper import scraper_query_object, scraper_query_vizier_gaia, scraper_query_object_local
 from gravity_util import find_gravity_data
 from gaia import gaia_args_verify
 from gaia_util import gaia_match
@@ -130,7 +130,7 @@ def get_object_location():
         object = request.args['object']
     except:
         raise error({'error': 'Object input invalid type'})
-    return json.dumps(scraper_query_object(object))
+    return json.dumps(scraper_query_object_local(object))
 
 
 @api.route("/vizier-query", methods=["get"])
@@ -145,7 +145,7 @@ def get_vizier_photometry():
 
     except:
         raise error({'error': 'Object input invalid type'})
-    return json.dumps(scraper_query_vizier_gaia(ra, dec, r))
+    return json.dumps(scraper_query_vizier_gaia(ra, dec, r)).replace("NaN", "null")
 
 
 def main():

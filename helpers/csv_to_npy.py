@@ -3,7 +3,7 @@ import os
 import numpy as np
 # import pandas as pd
 
-dir = 'iso-npy-data-beta'
+dir = '../iso-npy-data-beta'
 
 
 for file in sorted(os.listdir(os.path.join(os.path.dirname(__file__), dir))):

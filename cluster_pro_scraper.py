@@ -4,17 +4,38 @@ from astropy.coordinates import Angle
 import astropy
 import astropy.units as u
 import astropy.coordinates as coord
+import sqlite3
 
 
 def scraper_query_object(query: str):
     simbad = Simbad()
     simbad.add_votable_fields('bibcodelist(2003-2013)')
     raw = simbad.query_object(query)
-    # ['MAIN_ID', 'RA', 'DEC', 'RA_PREC', 'DEC_PREC',
-    # 'COO_ERR_MAJA', 'COO_ERR_MINA', 'COO_ERR_ANGLE', 'COO_QUAL', 'COO_WAVELENGTH', 'COO_BIBCODE',
-    # 'BIBLIST_2003_2013', 'SCRIPT_NUMBER_ID']
-    # raw.pprint()
     return {'RA': hms2d(raw['RA'][0]), 'DEC': dms2d(raw['DEC'][0]), 'Range': 0}
+
+
+def scraper_query_object_local(query: str):
+    simbad_result = scraper_query_object(query)
+    simbad_ra = simbad_result['RA']
+    simbad_dec = simbad_result['DEC']
+    print(simbad_result)
+    sqlite_filename = 'MWSC.sqlite'
+    conn = sqlite3.connect(sqlite_filename)
+    delta = 0.05
+    try:
+        cur = conn.cursor()
+        cluster = cur.execute('SELECT * FROM MWSC WHERE ra >= ? AND ra <=? AND dec >= ? AND dec <= ?',
+                              [simbad_ra - delta, simbad_ra + delta, simbad_dec - delta, simbad_dec + delta]).fetchall()
+        print(cluster)
+        if cluster:
+            cluster = cluster[0]
+            result = {'RA': cluster[2], "DEC": cluster[3], "Range": cluster[5]}
+        else:
+            result = simbad_result
+    except Exception as e:
+        print(e)
+        result = simbad_result
+    return result
 
 
 # print(scraper_query_vizier(115.44,-14.80,0.177))
@@ -30,15 +51,15 @@ def scraper_query_vizier_gaia(ra: float, dec: float, r: float):
     for row in t:
         result.append(dict(id=str(row['Source']),
                            isValid=True,
-                           G=float(row['Gmag']),
+                           GMag=float(row['Gmag']),
                            Gerr=float(row['e_FG']),
                            Gra=float(row['RA_ICRS']),
                            Gdec=float(row['DE_ICRS']),
-                           GBP=float(row['BPmag']),
+                           GBPMag=float(row['BPmag']),
                            GBPerr=float(row['e_FBP']),
                            GBPra=float(row['RA_ICRS']),
                            GBPdec=float(row['DE_ICRS']),
-                           GRP=float(row['RPmag']),
+                           GRPMag=float(row['RPmag']),
                            GRPerr=float(row['e_FRP']),
                            GRPra=float(row['RA_ICRS']),
                            GRPdec=float(row['DE_ICRS']),
@@ -55,7 +76,7 @@ def scraper_query_vizier_gaia(ra: float, dec: float, r: float):
                            # Rra=float(row['RA_ICRS']),
                            # Rdec=float(row['DE_ICRS']),
                            ))
-    return result
+    return {'data': result, 'filters': ['G', 'GRP', 'GBP']}
 
 
 # scraper_query_vizier_gaia(115.44, -14.80, 0.177)
@@ -84,9 +105,24 @@ def dms2d(dms: str):
         return -result
 
 
-
 # t.show_in_browser()
 
 # with open('scraper_sample.txt', 'w') as f:
 #     f.write(str(result))
 # f.close()
+
+# scraper_query_object_local('M2')
+def table_to_python(table):
+    """Convert Astropy Table to Python dict.
+
+    Numpy arrays are converted to lists, so that
+    the output is JSON serialisable.
+
+    Can work with multi-dimensional array columns,
+    by representing them as list of list.
+    """
+    total_data = {}
+    for name in table.colnames:
+        data = table[name].tolist()
+        total_data[name] = data
+    return total_data
