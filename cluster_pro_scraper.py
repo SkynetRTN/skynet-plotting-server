@@ -6,6 +6,8 @@ import astropy.units as u
 import astropy.coordinates as coord
 import sqlite3
 
+from gaia_util import gaia_match
+
 
 def scraper_query_object(query: str):
     simbad = Simbad()
@@ -18,7 +20,6 @@ def scraper_query_object_local(query: str):
     simbad_result = scraper_query_object(query)
     simbad_ra = simbad_result['RA']
     simbad_dec = simbad_result['DEC']
-    print(simbad_result)
     sqlite_filename = 'MWSC.sqlite'
     conn = sqlite3.connect(sqlite_filename)
     delta = 0.05
@@ -26,57 +27,81 @@ def scraper_query_object_local(query: str):
         cur = conn.cursor()
         cluster = cur.execute('SELECT * FROM MWSC WHERE ra >= ? AND ra <=? AND dec >= ? AND dec <= ?',
                               [simbad_ra - delta, simbad_ra + delta, simbad_dec - delta, simbad_dec + delta]).fetchall()
-        print(cluster)
         if cluster:
             cluster = cluster[0]
             result = {'RA': cluster[2], "DEC": cluster[3], "Range": cluster[5]}
         else:
             result = simbad_result
     except Exception as e:
-        print(e)
         result = simbad_result
     return result
 
 
 # print(scraper_query_vizier(115.44,-14.80,0.177))
-def scraper_query_vizier(ra: float, dec: float, r: float) -> astropy.table:
+def scraper_query_vizier(ra: float, dec: float, r: float, catalog) -> astropy.table:
     query_coords = coord.SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame='icrs')
-    result = Vizier.query_region(query_coords, radius=Angle(r * u.deg), catalog='I/355')
-    return result[0]
+    # Skymapper by default does not report the error columns
+    columns = []
+    catalog_vizier = []
+    filters = []
+    if 'gaia' in catalog:
+        filters += ['G', 'BP', 'RP']
+        columns += ['Source', 'RA_ICRS', 'DE_ICRS', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Dist']
+        columns += ['Gmag', 'e_Gmag', 'BPmag', 'e_BPmag', 'RPmag', 'e_RPmag']
+        catalog_vizier.append('I/355/gaiadr3')
+    if '2mass' in catalog:
+        filters += ['J', 'H', 'K']
+        columns += ['RAJ2000', 'DEJ2000']
+        columns += ['Jmag', 'e_Jmag', 'Hmag', 'e_Hmag', 'Kmag', 'e_Kmag']
+        catalog_vizier.append('II/246/out')
 
+    if catalog:
+        vquery = Vizier(columns=columns, row_limit=30000)
+        query = vquery.query_region(query_coords, radius=Angle(r * u.deg), catalog=catalog_vizier)
+        query = query[0]
+        result = []
+        for row in query:
+            result_row = dict(id=str(row['Source']), isValid=True)
+            for filt in filters:
+                result_row[filt + 'Mag'] = float(row[filt + 'mag'])
+                result_row[filt + 'err'] = float(row['e_' + filt + 'mag'])
+                result_row[filt + 'ra'] = float(row['RA_ICRS'])
+                result_row[filt + 'dec'] = float(row['DE_ICRS'])
+                result_row[filt + 'pmra'] = float(row['pmRA'])
+                result_row[filt + 'pmdec'] = float(row['pmDE'])
+                result_row[filt + 'dist'] = float(row['Dist'])
+            result.append(result_row)
+        return {'data': result, 'filters': filters}
+    else:
+        return []
 
-def scraper_query_vizier_gaia(ra: float, dec: float, r: float):
-    t = scraper_query_vizier(ra, dec, r)
-    result = []
-    for row in t:
-        result.append(dict(id=str(row['Source']),
-                           isValid=True,
-                           GMag=float(row['Gmag']),
-                           Gerr=float(row['e_FG']),
-                           Gra=float(row['RA_ICRS']),
-                           Gdec=float(row['DE_ICRS']),
-                           GBPMag=float(row['BPmag']),
-                           GBPerr=float(row['e_FBP']),
-                           GBPra=float(row['RA_ICRS']),
-                           GBPdec=float(row['DE_ICRS']),
-                           GRPMag=float(row['RPmag']),
-                           GRPerr=float(row['e_FRP']),
-                           GRPra=float(row['RA_ICRS']),
-                           GRPdec=float(row['DE_ICRS']),
-                           # B=float(row['Gmag']),
-                           # Berr=float(row['e_FG']),
-                           # Bra=float(row['RA_ICRS']),
-                           # Bdec=float(row['DE_ICRS']),
-                           # V=float(row['BPmag']),
-                           # Verr=float(row['e_FBP']),
-                           # Vra=float(row['RA_ICRS']),
-                           # Vdec=float(row['DE_ICRS']),
-                           # R=float(row['RPmag']),
-                           # Rerr=float(row['e_FRP']),
-                           # Rra=float(row['RA_ICRS']),
-                           # Rdec=float(row['DE_ICRS']),
-                           ))
-    return {'data': result, 'filters': ['G', 'GRP', 'GBP']}
+def datatable_to_gaiatable(data, filters, star_range):
+    query = []
+    for row in data:
+        for filter_name in filters:
+            if row[filter_name + 'ra'] and row[filter_name + 'dec']:
+                query.append({'id': row['id'], 'ra': row[filter_name + 'ra'], 'dec': row[filter_name + 'dec']})
+                break
+    gaia_result = gaia_match(query, star_range)
+    table_index = 0
+    gaia_index = 0
+
+    result = data
+    while table_index < len(result) and gaia_index < len(gaia_result):
+        if result[table_index]['id'] == gaia_result[gaia_index]['id']:
+            for filter_name in filters:
+                result[table_index][filter_name + 'pmra'] = gaia_result[gaia_index]['pm']['ra']
+                result[table_index][filter_name + 'pmdec'] = gaia_result[gaia_index]['pm']['dec']
+                result[table_index][filter_name + 'dist'] = gaia_result[gaia_index]['range']
+            table_index += 1
+            gaia_index += 1
+        else:
+            result[table_index][filter_name + 'pmra'] = None
+            result[table_index][filter_name + 'pmdec'] = None
+            result[table_index][filter_name + 'dist'] = None
+            table_index += 1
+
+    return result
 
 
 # scraper_query_vizier_gaia(115.44, -14.80, 0.177)
@@ -126,3 +151,8 @@ def table_to_python(table):
         data = table[name].tolist()
         total_data[name] = data
     return total_data
+
+
+# data = scraper_query_vizier_gaia(ra=115.45, dec=-14.80, r=0.570)
+#
+# print(data)

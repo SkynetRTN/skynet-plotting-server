@@ -47,8 +47,8 @@ beta_cols = [
     "W3",
     "W4",
     "G",
-    "GBP",
-    "GRP",
+    "BP",
+    "RP",
     "junk",
 ]
 
