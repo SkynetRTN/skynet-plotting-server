@@ -1,3 +1,4 @@
+import numpy as np
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 from astropy.coordinates import Angle
@@ -5,6 +6,7 @@ import astropy
 import astropy.units as u
 import astropy.coordinates as coord
 import sqlite3
+import grispy as gsp
 
 from gaia_util import gaia_match
 
@@ -37,43 +39,97 @@ def scraper_query_object_local(query: str):
     return result
 
 
-# print(scraper_query_vizier(115.44,-14.80,0.177))
-def scraper_query_vizier(ra: float, dec: float, r: float, catalog) -> astropy.table:
-    query_coords = coord.SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame='icrs')
-    # Skymapper by default does not report the error columns
-    columns = []
-    catalog_vizier = []
-    filters = []
+def scraper_query(coordinates, catalog):
+    gaia = scraper_query_gaia(coordinates)
+    output_filters = []
     if 'gaia' in catalog:
-        filters += ['G', 'BP', 'RP']
-        columns += ['Source', 'RA_ICRS', 'DE_ICRS', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Dist']
-        columns += ['Gmag', 'e_Gmag', 'BPmag', 'e_BPmag', 'RPmag', 'e_RPmag']
-        catalog_vizier.append('I/355/gaiadr3')
-    if '2mass' in catalog:
-        filters += ['J', 'H', 'K']
-        columns += ['RAJ2000', 'DEJ2000']
-        columns += ['Jmag', 'e_Jmag', 'Hmag', 'e_Hmag', 'Kmag', 'e_Kmag']
-        catalog_vizier.append('II/246/out')
+        output_filters += ['G', 'BP', 'RP']
+    if 'twomass' in catalog:
+        two_mass_filters = ['J', 'H', 'K']
+        output_filters += two_mass_filters
+        two_mass_columns = filters_to_columns(two_mass_filters)
+        two_mass_table = scraper_query_vizier(coordinates, two_mass_columns, 'II/246/out')
+        gaia['gaia_table'] = gaia_table_matching(gaia, two_mass_table)
+    if 'wise' in catalog:
+        wise_filters = ['W1', 'W2', 'W3', 'W4']
+        output_filters += wise_filters
+        wise_columns = filters_to_columns(wise_filters)
+        wise_table = scraper_query_vizier(coordinates, wise_columns, 'II/328/allwise')
+        gaia['gaia_table'] = gaia_table_matching(gaia, wise_table)
 
-    if catalog:
-        vquery = Vizier(columns=columns, row_limit=30000)
-        query = vquery.query_region(query_coords, radius=Angle(r * u.deg), catalog=catalog_vizier)
-        query = query[0]
-        result = []
-        for row in query:
-            result_row = dict(id=str(row['Source']), isValid=True)
-            for filt in filters:
-                result_row[filt + 'Mag'] = float(row[filt + 'mag'])
-                result_row[filt + 'err'] = float(row['e_' + filt + 'mag'])
-                result_row[filt + 'ra'] = float(row['RA_ICRS'])
-                result_row[filt + 'dec'] = float(row['DE_ICRS'])
-                result_row[filt + 'pmra'] = float(row['pmRA'])
-                result_row[filt + 'pmdec'] = float(row['pmDE'])
-                result_row[filt + 'dist'] = float(row['Dist'])
-            result.append(result_row)
-        return {'data': result, 'filters': filters}
-    else:
-        return []
+    return astropy_table_to_result(gaia['gaia_table'], output_filters)
+
+
+def filters_to_columns(filters):
+    result = ['RAJ2000', 'DEJ2000']
+    for filt in filters:
+        result.append(filt + 'mag')
+        result.append('e_' + filt + 'mag')
+    return result
+
+
+def gaia_table_matching(gaia_query, target_query):
+    table = gaia_query['gaia_table']
+    gaia_cord = gaia_query['np_coordinates']
+    target_table = target_query
+    target_cord = np.dstack((np.array(target_table['RAJ2000']), np.array(target_table['DEJ2000'])))[0]
+
+    grid = gsp.GriSPy(gaia_cord, N_cells=128)
+    nn_dist, nn_indices = grid.nearest_neighbors(target_cord, n=1)
+    nn_dist = np.concatenate(nn_dist)
+    nn_indices = np.concatenate(nn_indices)
+    nn_indices_filtered = [nn_indices[i] if nn_dist[i] < 0.000833 else 0 for i in range(0, len(nn_indices))]
+
+    nn_indices_col = astropy.table.column.Column(data=np.array(nn_indices_filtered), name='id')
+    target_table.add_column(nn_indices_col, 0)
+
+    return astropy.table.join(left=table, right=target_table, keys='id', join_type='left')
+
+
+def astropy_table_to_result(table, filters):
+    result = []
+    for row in table:
+        result_row = dict(id=str(row['id']), isValid=True)
+        for filt in filters:
+            result_row[filt + 'Mag'] = float(row[filt + 'mag'])
+            result_row[filt + 'err'] = float(row['e_' + filt + 'mag'])
+            result_row[filt + 'ra'] = float(row['RA_ICRS'])
+            result_row[filt + 'dec'] = float(row['DE_ICRS'])
+            result_row[filt + 'pmra'] = float(row['pmRA'])
+            result_row[filt + 'pmdec'] = float(row['pmDE'])
+            result_row[filt + 'dist'] = float(row['Dist'])
+        result.append(result_row)
+    return {'data': result, 'filters': filters}
+
+
+def scraper_query_gaia(coordinates):
+    columns = ['RA_ICRS', 'DE_ICRS', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Dist']
+    columns += ['Gmag', 'e_Gmag', 'BPmag', 'e_BPmag', 'RPmag', 'e_RPmag']
+
+    gaia_table = scraper_query_vizier(coordinates, columns, 'I/355/gaiadr3')
+
+    row_len = len(gaia_table['RA_ICRS'])
+    index_col = astropy.table.column.Column(data=np.array(range(1, row_len + 1)), name='id')
+    gaia_table.add_column(index_col, 0)
+
+    gaia_coordinates = np.dstack((np.array(gaia_table['RA_ICRS']), np.array(gaia_table['DE_ICRS'])))[0]
+
+    return {'gaia_table': gaia_table, 'np_coordinates': gaia_coordinates}
+
+
+def coordinates_to_dist(ra: float, dec: float, r: float):
+    return {'ra': ra, 'dec': dec, 'r': r}
+
+
+def scraper_query_vizier(coordinates, columns, catalog_vizier):
+    ra = coordinates['ra']
+    dec = coordinates['dec']
+    r = coordinates['r']
+    query_coords = coord.SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame='icrs')
+    vquery = Vizier(columns=columns, row_limit=30000)
+    query = vquery.query_region(query_coords, radius=Angle(r * u.deg), catalog=catalog_vizier)[0]
+    return query
+
 
 def datatable_to_gaiatable(data, filters, star_range):
     query = []
@@ -103,8 +159,6 @@ def datatable_to_gaiatable(data, filters, star_range):
 
     return result
 
-
-# scraper_query_vizier_gaia(115.44, -14.80, 0.177)
 
 def hms2d(hms: str):
     hms = hms.split(' ')
@@ -151,8 +205,3 @@ def table_to_python(table):
         data = table[name].tolist()
         total_data[name] = data
     return total_data
-
-
-# data = scraper_query_vizier_gaia(ra=115.45, dec=-14.80, r=0.570)
-#
-# print(data)

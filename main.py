@@ -13,7 +13,7 @@ from werkzeug.datastructures import CombinedMultiDict, MultiDict
 import ast
 
 from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files_beta
-from cluster_pro_scraper import scraper_query_object_local, scraper_query_vizier
+from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
 from gravity_util import find_gravity_data
 from gaia import gaia_args_verify
 from gaia_util import gaia_match
@@ -140,11 +140,13 @@ def get_vizier_photometry():
         ra: float = float(request.args['ra'])
         dec: float = float(request.args['dec'])
         r: float = float(request.args['r'])
+        coordinates = coordinates_to_dist(ra, dec, r)
         catalog = request.args['catalog'].split(',')
-
-    except:
+        if not catalog:
+            raise error({'error': 'no catalog!'})
+    except Exception as e:
         raise error({'error': 'Object input invalid type'})
-    return json.dumps(scraper_query_vizier(ra, dec, r, catalog)).replace("NaN", "null")
+    return json.dumps(scraper_query(coordinates, catalog)).replace("NaN", "null")
 
 
 def main():
