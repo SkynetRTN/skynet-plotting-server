@@ -133,7 +133,7 @@ def get_object_location():
     return json.dumps(scraper_query_object_local(object))
 
 
-@api.route("/vizier-query", methods=["get"])
+@api.route("/vizier-query", methods=["post"])
 def get_vizier_photometry():
     tb = sys.exc_info()[2]
     try:
@@ -141,12 +141,14 @@ def get_vizier_photometry():
         dec: float = float(request.args['dec'])
         r: float = float(request.args['r'])
         coordinates = coordinates_to_dist(ra, dec, r)
-        catalog = request.args['catalog'].split(',')
+        catalog = request.args['catalog']
+        file_key = request.args['keys']
+        file_data = request.args['data']
         if not catalog:
             raise error({'error': 'no catalog!'})
     except Exception as e:
         raise error({'error': 'Object input invalid type'})
-    return json.dumps(scraper_query(coordinates, catalog)).replace("NaN", "null")
+    return json.dumps(scraper_query(coordinates, catalog, file_key, file_data)).replace("NaN", "null")
 
 
 def main():

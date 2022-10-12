@@ -1,3 +1,4 @@
+import numpy
 import numpy as np
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
@@ -7,6 +8,8 @@ import astropy.units as u
 import astropy.coordinates as coord
 import sqlite3
 import grispy as gsp
+import operator
+from functools import reduce
 
 from gaia_util import gaia_match
 
@@ -39,8 +42,10 @@ def scraper_query_object_local(query: str):
     return result
 
 
-def scraper_query(coordinates, catalog):
+def scraper_query(coordinates, catalog, file_keys, file_data):
     gaia = scraper_query_gaia(coordinates)
+    result_table = gaia['gaia_table']
+    grid = gsp.GriSPy(gaia['np_coordinates'], N_cells=128)
     output_filters = []
     if 'gaia' in catalog:
         output_filters += ['G', 'BP', 'RP']
@@ -49,15 +54,67 @@ def scraper_query(coordinates, catalog):
         output_filters += two_mass_filters
         two_mass_columns = filters_to_columns(two_mass_filters)
         two_mass_table = scraper_query_vizier(coordinates, two_mass_columns, 'II/246/out')
-        gaia['gaia_table'] = gaia_table_matching(gaia, two_mass_table)
+        result_table = gaia_table_matching(grid, result_table, two_mass_table)
     if 'wise' in catalog:
         wise_filters = ['W1', 'W2', 'W3', 'W4']
         output_filters += wise_filters
         wise_columns = filters_to_columns(wise_filters)
         wise_table = scraper_query_vizier(coordinates, wise_columns, 'II/328/allwise')
-        gaia['gaia_table'] = gaia_table_matching(gaia, wise_table)
+        result_table = gaia_table_matching(grid, result_table, wise_table)
+    if file_keys:
+        file_filters = [key[0:-3] for key in file_keys if 'err' in key]
+        output_filters += file_filters
 
-    return astropy_table_to_result(gaia['gaia_table'], output_filters)
+        file_keys = file_keys[2:] + ["source", "isValid"]
+        file_keys = [key + "mag" if key in file_filters else key for key in file_keys]
+        file_keys = ["e_" + key[0:-3] + "mag" if "err" in key else key for key in file_keys]
+        key_dtype = tuple(['<f8' for _ in range(0, len(file_keys)-2)] + ['U', 'U'])
+
+        file_table = astropy.table.Table(rows=file_data, names=tuple(file_keys), dtype=key_dtype, masked=True)
+
+        ra_keys = tuple([filt + "ra" for filt in file_filters])
+        dec_keys = tuple([filt + "dec" for filt in file_filters])
+
+        coord_dtype = tuple(['<f8' for _ in range(0, len(file_filters))])
+        file_ras = astropy.table.Table(file_table[ra_keys], dtype=coord_dtype)
+        file_decs = astropy.table.Table(file_table[dec_keys], dtype=coord_dtype)
+
+        np_file_ras = np.array(file_ras[ra_keys[0]])
+        np_file_decs = np.array(file_decs[dec_keys[0]])
+
+        for i in range(0, len(ra_keys)):
+            ra_key = ra_keys[i]
+            dec_key = dec_keys[i]
+            if i > 0:
+                if i == 1:
+                    np_file_ras = np.dstack((np_file_ras, np.array(file_ras[ra_key])))[0]
+                    np_file_decs = np.dstack((np_file_decs, np.array(file_decs[dec_key])))[0]
+                else:
+                    np_file_ras = np.concatenate((np_file_ras, np.array([file_ras[ra_key]]).T), axis=1)
+                    np_file_decs = np.concatenate((np_file_decs, np.array([file_decs[dec_key]]).T), axis=1)
+
+        masked_np_file_ras = np.ma.masked_array(np_file_ras, np.isnan(np_file_ras))
+        masked_np_file_decs = np.ma.masked_array(np_file_decs, np.isnan(np_file_decs))
+
+        ras = numpy.average(masked_np_file_ras, axis=1)
+        decs = numpy.average(masked_np_file_decs, axis=1)
+
+        ra_col = astropy.table.column.Column(data=ras, name='RAJ2000')
+        dec_col = astropy.table.column.Column(data=decs, name='DEJ2000')
+
+        file_table.add_columns([ra_col, dec_col])
+
+        file_table = file_table[tuple(['RAJ2000', 'DEJ2000'] +
+                                      [filt + "mag" for filt in file_filters] +
+                                      ["e_" + filt + "mag" for filt in file_filters])]
+
+        mask = np.logical_and(abs(file_table['RAJ2000']) > 0.000001, abs(file_table['DEJ2000']) > 0.000001)
+
+        file_table = file_table[mask]
+
+        result_table = gaia_table_matching(grid, result_table, file_table)
+
+    return astropy_table_to_result(result_table, output_filters)
 
 
 def filters_to_columns(filters):
@@ -68,21 +125,19 @@ def filters_to_columns(filters):
     return result
 
 
-def gaia_table_matching(gaia_query, target_query):
-    table = gaia_query['gaia_table']
-    gaia_cord = gaia_query['np_coordinates']
+def gaia_table_matching(grid, table, target_query):
     target_table = target_query
     target_cord = np.dstack((np.array(target_table['RAJ2000']), np.array(target_table['DEJ2000'])))[0]
-
-    grid = gsp.GriSPy(gaia_cord, N_cells=128)
+    # print(target_cord)
     nn_dist, nn_indices = grid.nearest_neighbors(target_cord, n=1)
+    # print(nn_indices)
     nn_dist = np.concatenate(nn_dist)
     nn_indices = np.concatenate(nn_indices)
     nn_indices_filtered = [nn_indices[i] if nn_dist[i] < 0.000833 else 0 for i in range(0, len(nn_indices))]
 
     nn_indices_col = astropy.table.column.Column(data=np.array(nn_indices_filtered), name='id')
     target_table.add_column(nn_indices_col, 0)
-
+    # print(target_table)
     return astropy.table.join(left=table, right=target_table, keys='id', join_type='left')
 
 
