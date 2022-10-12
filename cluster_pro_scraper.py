@@ -47,29 +47,28 @@ def scraper_query(coordinates, catalog, file_keys, file_data):
     result_table = gaia['gaia_table']
     grid = gsp.GriSPy(gaia['np_coordinates'], N_cells=128)
     output_filters = []
-    if 'gaia' in catalog:
-        output_filters += ['G', 'BP', 'RP']
-    if 'twomass' in catalog:
-        two_mass_filters = ['J', 'H', 'K']
-        output_filters += two_mass_filters
-        two_mass_columns = filters_to_columns(two_mass_filters)
-        two_mass_table = scraper_query_vizier(coordinates, two_mass_columns, 'II/246/out')
-        result_table = gaia_table_matching(grid, result_table, two_mass_table)
-    if 'wise' in catalog:
-        wise_filters = ['W1', 'W2', 'W3', 'W4']
-        output_filters += wise_filters
-        wise_columns = filters_to_columns(wise_filters)
-        wise_table = scraper_query_vizier(coordinates, wise_columns, 'II/328/allwise')
-        result_table = gaia_table_matching(grid, result_table, wise_table)
+
     if file_keys:
+        file_keys = [key.replace(" ", "") for key in file_keys]
         file_filters = [key[0:-3] for key in file_keys if 'err' in key]
         output_filters += file_filters
+        print(file_keys)
 
-        file_keys = file_keys[2:] + ["source", "isValid"]
-        file_keys = [key + "mag" if key in file_filters else key for key in file_keys]
+        if file_keys[0] == "id":
+            print(file_data[0])
+            print(file_keys)
+            file_keys = ["source", "isValid"] + file_keys[2:]
+            key_dtype = tuple(['U', 'U'] + ['<f8' for _ in range(0, len(file_keys)-2)])
+        else:
+            print(file_data[0])
+            print(file_keys)
+            file_keys = file_keys[:-2] + ["source", "isValid"]
+            key_dtype = tuple(['<f8' for _ in range(0, len(file_keys)-2)] + ['U', 'U'])
+
+        # file_keys = [key + "mag" if key in file_filters else key for key in file_keys]
+        file_keys = [key.replace("Mag", "mag") if "Mag" in key else key for key in file_keys]
         file_keys = ["e_" + key[0:-3] + "mag" if "err" in key else key for key in file_keys]
-        key_dtype = tuple(['<f8' for _ in range(0, len(file_keys)-2)] + ['U', 'U'])
-
+        print(file_keys)
         file_table = astropy.table.Table(rows=file_data, names=tuple(file_keys), dtype=key_dtype, masked=True)
 
         ra_keys = tuple([filt + "ra" for filt in file_filters])
@@ -102,6 +101,8 @@ def scraper_query(coordinates, catalog, file_keys, file_data):
         ra_col = astropy.table.column.Column(data=ras, name='RAJ2000')
         dec_col = astropy.table.column.Column(data=decs, name='DEJ2000')
 
+        # file_table.show_in_browser()
+
         file_table.add_columns([ra_col, dec_col])
 
         file_table = file_table[tuple(['RAJ2000', 'DEJ2000'] +
@@ -112,7 +113,28 @@ def scraper_query(coordinates, catalog, file_keys, file_data):
 
         file_table = file_table[mask]
 
+        # file_table.show_in_browser()
+
         result_table = gaia_table_matching(grid, result_table, file_table)
+
+    if 'gaia' in catalog:
+        output_filters += ['G', 'BP', 'RP']
+    if 'twomass' in catalog:
+        two_mass_filters = ['J', 'H', 'K']
+        output_filters += two_mass_filters
+        two_mass_columns = filters_to_columns(two_mass_filters)
+        two_mass_table = scraper_query_vizier(coordinates, two_mass_columns, 'II/246/out')
+        result_table = gaia_table_matching(grid, result_table, two_mass_table)
+    if 'wise' in catalog:
+        wise_filters = ['W1', 'W2', 'W3', 'W4']
+        output_filters += wise_filters
+        wise_columns = filters_to_columns(wise_filters)
+        wise_table = scraper_query_vizier(coordinates, wise_columns, 'II/328/allwise')
+        result_table = gaia_table_matching(grid, result_table, wise_table)
+
+    output_filters = list(dict.fromkeys(output_filters)) # remove duplicates
+    print(output_filters)
+    print(result_table.colnames)
 
     return astropy_table_to_result(result_table, output_filters)
 
@@ -135,9 +157,16 @@ def gaia_table_matching(grid, table, target_query):
     nn_indices = np.concatenate(nn_indices)
     nn_indices_filtered = [nn_indices[i] if nn_dist[i] < 0.000833 else 0 for i in range(0, len(nn_indices))]
 
+    # non_duplicate_cols = [target_col if target_col in table.colnames else "" for target_col in target_table.colnames]
+
+    non_duplicate_cols = list(numpy.intersect1d(np.array(target_table.colnames),
+                                                np.setxor1d(np.array(target_table.colnames), np.array(table.colnames))))
+    print(non_duplicate_cols)
+    target_table = target_table[non_duplicate_cols]
+
     nn_indices_col = astropy.table.column.Column(data=np.array(nn_indices_filtered), name='id')
     target_table.add_column(nn_indices_col, 0)
-    # print(target_table)
+    print(target_table.colnames)
     return astropy.table.join(left=table, right=target_table, keys='id', join_type='left')
 
 
