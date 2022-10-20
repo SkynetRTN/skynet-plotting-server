@@ -1,3 +1,5 @@
+import time
+
 import numpy
 import numpy as np
 from astroquery.simbad import Simbad
@@ -42,8 +44,15 @@ def scraper_query_object_local(query: str):
     return result
 
 
-def scraper_query(coordinates, catalog, file_keys, file_data):
-    gaia = scraper_query_gaia(coordinates)
+def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
+    time_temp = time.time_ns()
+
+    gaia = scraper_query_gaia(coordinates, constrain)
+
+    # print("GAIA Fetch Finished:")
+    # print((time.time_ns() - time_temp)/(10**(-9)))
+    # time_temp = time.time_ns()
+
     result_table = gaia['gaia_table']
     grid = gsp.GriSPy(gaia['np_coordinates'], N_cells=128)
     output_filters = []
@@ -52,23 +61,23 @@ def scraper_query(coordinates, catalog, file_keys, file_data):
         file_keys = [key.replace(" ", "") for key in file_keys]
         file_filters = [key[0:-3] for key in file_keys if 'err' in key]
         output_filters += file_filters
-        print(file_keys)
+        # print(file_keys)
 
         if file_keys[0] == "id":
-            print(file_data[0])
-            print(file_keys)
+            # print(file_data[0])
+            # print(file_keys)
             file_keys = ["source", "isValid"] + file_keys[2:]
             key_dtype = tuple(['U', 'U'] + ['<f8' for _ in range(0, len(file_keys)-2)])
         else:
-            print(file_data[0])
-            print(file_keys)
+            # print(file_data[0])
+            # print(file_keys)
             file_keys = file_keys[:-2] + ["source", "isValid"]
             key_dtype = tuple(['<f8' for _ in range(0, len(file_keys)-2)] + ['U', 'U'])
 
         # file_keys = [key + "mag" if key in file_filters else key for key in file_keys]
         file_keys = [key.replace("Mag", "mag") if "Mag" in key else key for key in file_keys]
         file_keys = ["e_" + key[0:-3] + "mag" if "err" in key else key for key in file_keys]
-        print(file_keys)
+        # print(file_keys)
         file_table = astropy.table.Table(rows=file_data, names=tuple(file_keys), dtype=key_dtype, masked=True)
 
         ra_keys = tuple([filt + "ra" for filt in file_filters])
@@ -125,16 +134,25 @@ def scraper_query(coordinates, catalog, file_keys, file_data):
         two_mass_columns = filters_to_columns(two_mass_filters)
         two_mass_table = scraper_query_vizier(coordinates, two_mass_columns, 'II/246/out')
         result_table = gaia_table_matching(grid, result_table, two_mass_table)
+
     if 'wise' in catalog:
         wise_filters = ['W1', 'W2', 'W3', 'W4']
         output_filters += wise_filters
         wise_columns = filters_to_columns(wise_filters)
         wise_table = scraper_query_vizier(coordinates, wise_columns, 'II/328/allwise')
+
+        # print("WISE Fetch Finished:")
+        # print((time.time_ns() - time_temp)/(10**(-9)))
+        # time_temp = time.time_ns()
+
         result_table = gaia_table_matching(grid, result_table, wise_table)
 
+        # print((time.time_ns() - time_temp)/(10**(-9)))
+        # time_temp = time.time_ns()
+
     output_filters = list(dict.fromkeys(output_filters)) # remove duplicates
-    print(output_filters)
-    print(result_table.colnames)
+    # print(output_filters)
+    # print(result_table.colnames)
 
     return astropy_table_to_result(result_table, output_filters)
 
@@ -186,11 +204,11 @@ def astropy_table_to_result(table, filters):
     return {'data': result, 'filters': filters}
 
 
-def scraper_query_gaia(coordinates):
+def scraper_query_gaia(coordinates, constrain):
     columns = ['RA_ICRS', 'DE_ICRS', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Dist']
     columns += ['Gmag', 'e_Gmag', 'BPmag', 'e_BPmag', 'RPmag', 'e_RPmag']
 
-    gaia_table = scraper_query_vizier(coordinates, columns, 'I/355/gaiadr3')
+    gaia_table = scraper_query_vizier(coordinates, columns, 'I/355/gaiadr3', constrain)
 
     row_len = len(gaia_table['RA_ICRS'])
     index_col = astropy.table.column.Column(data=np.array(range(1, row_len + 1)), name='id')
@@ -205,13 +223,25 @@ def coordinates_to_dist(ra: float, dec: float, r: float):
     return {'ra': ra, 'dec': dec, 'r': r}
 
 
-def scraper_query_vizier(coordinates, columns, catalog_vizier):
+def scraper_query_vizier(coordinates, columns, catalog_vizier, constrain=None):
     ra = coordinates['ra']
     dec = coordinates['dec']
     r = coordinates['r']
     query_coords = coord.SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame='icrs')
     vquery = Vizier(columns=columns, row_limit=30000)
-    query = vquery.query_region(query_coords, radius=Angle(r * u.deg), catalog=catalog_vizier)[0]
+    constrain_filter = {}
+    if constrain:
+        constrain_filter = {'pmRA': str(constrain['pmra']['min']) + ' .. ' + str(constrain['pmra']['max']),
+                            'pmDE': str(constrain['pmdec']['min']) + ' .. ' + str(constrain['pmdec']['max']),
+                            'Dist': str(constrain['distance']['min']) + ' .. ' + str(constrain['distance']['max']),
+                            }
+    # print(constrain_filter)
+    query = vquery.query_region(query_coords,
+                                radius=Angle(r * u.deg),
+                                catalog=catalog_vizier,
+                                column_filters=constrain_filter
+                                )[0]
+    # print(query.info)
     return query
 
 
