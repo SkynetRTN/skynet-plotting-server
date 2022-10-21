@@ -149,7 +149,9 @@ def get_vizier_photometry():
             raise error({'error': 'no catalog!'})
     except Exception as e:
         raise error({'error': 'Object input invalid type'})
-    return json.dumps(scraper_query(coordinates, constrain, catalog, file_key, file_data)).replace("NaN", "null")
+    return json.dumps(
+        scraper_query(coordinates, constrain, catalog, file_key, file_data)
+    ).replace("NaN", "null")
 
 
 def main():

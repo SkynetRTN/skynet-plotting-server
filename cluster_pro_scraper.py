@@ -128,6 +128,14 @@ def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
 
     if 'gaia' in catalog:
         output_filters += ['G', 'BP', 'RP']
+
+    if 'apass' in catalog:
+        apass_filters = ['V', 'B', 'g\'', 'r\'', 'i\'']
+        output_filters += apass_filters
+        apass_columns = filters_to_columns(apass_filters)
+        apass_table = scraper_query_vizier(coordinates, apass_columns, 'II/336')
+        result_table = gaia_table_matching(grid, result_table, apass_table)
+
     if 'twomass' in catalog:
         two_mass_filters = ['J', 'H', 'K']
         output_filters += two_mass_filters
@@ -168,9 +176,7 @@ def filters_to_columns(filters):
 def gaia_table_matching(grid, table, target_query):
     target_table = target_query
     target_cord = np.dstack((np.array(target_table['RAJ2000']), np.array(target_table['DEJ2000'])))[0]
-    # print(target_cord)
     nn_dist, nn_indices = grid.nearest_neighbors(target_cord, n=1)
-    # print(nn_indices)
     nn_dist = np.concatenate(nn_dist)
     nn_indices = np.concatenate(nn_indices)
     nn_indices_filtered = [nn_indices[i] if nn_dist[i] < 0.000833 else 0 for i in range(0, len(nn_indices))]
@@ -193,13 +199,15 @@ def astropy_table_to_result(table, filters):
     for row in table:
         result_row = dict(id=str(row['id']), isValid=True)
         for filt in filters:
-            result_row[filt + 'Mag'] = float(row[filt + 'mag'])
-            result_row[filt + 'err'] = float(row['e_' + filt + 'mag'])
+            filt_raw = filt.replace('\'', '_')
+            result_row[filt + 'Mag'] = float(row[filt_raw + 'mag'])
+            result_row[filt + 'err'] = float(row['e_' + filt_raw + 'mag'])
             result_row[filt + 'ra'] = float(row['RA_ICRS'])
             result_row[filt + 'dec'] = float(row['DE_ICRS'])
             result_row[filt + 'pmra'] = float(row['pmRA'])
             result_row[filt + 'pmdec'] = float(row['pmDE'])
             result_row[filt + 'dist'] = float(row['Dist'])
+
         result.append(result_row)
     return {'data': result, 'filters': filters}
 
