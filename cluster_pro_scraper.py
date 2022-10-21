@@ -199,9 +199,12 @@ def gaia_table_matching(grid, table, target_query):
 
 def astropy_table_to_result(table, filters):
     result = []
-    print(table.info)
-    # table = table.unique(table, keys=[filt + 'mag' for filt in filters])
-    # print(table.info)
+    filter_mags = [filt + 'mag' for filt in filters]
+    mag_columns = []
+    for col in table.columns:
+        if col in filter_mags:
+            mag_columns.append(col)
+    table = table[reduce(operator.or_, [~table[col].mask for col in mag_columns])]
     for row in table:
         result_row = dict(id=str(row['id']), isValid=True)
         for filt in filters:
@@ -212,7 +215,6 @@ def astropy_table_to_result(table, filters):
             result_row[filt + 'pmra'] = float(row['pmRA'])
             result_row[filt + 'pmdec'] = float(row['pmDE'])
             result_row[filt + 'dist'] = float(row['Dist'])
-
         result.append(result_row)
     return {'data': result, 'filters': filters}
 
