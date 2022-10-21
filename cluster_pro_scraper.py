@@ -67,12 +67,12 @@ def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
             # print(file_data[0])
             # print(file_keys)
             file_keys = ["source", "isValid"] + file_keys[2:]
-            key_dtype = tuple(['U', 'U'] + ['<f8' for _ in range(0, len(file_keys)-2)])
+            key_dtype = tuple(['U', 'U'] + ['<f8' for _ in range(0, len(file_keys) - 2)])
         else:
             # print(file_data[0])
             # print(file_keys)
             file_keys = file_keys[:-2] + ["source", "isValid"]
-            key_dtype = tuple(['<f8' for _ in range(0, len(file_keys)-2)] + ['U', 'U'])
+            key_dtype = tuple(['<f8' for _ in range(0, len(file_keys) - 2)] + ['U', 'U'])
 
         # file_keys = [key + "mag" if key in file_filters else key for key in file_keys]
         file_keys = [key.replace("Mag", "mag") if "Mag" in key else key for key in file_keys]
@@ -152,18 +152,9 @@ def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
         wise_columns = filters_to_columns(wise_filters)
         wise_table = scraper_query_vizier(coordinates, wise_columns, 'II/328/allwise')
 
-        # print("WISE Fetch Finished:")
-        # print((time.time_ns() - time_temp)/(10**(-9)))
-        # time_temp = time.time_ns()
-
         result_table = gaia_table_matching(grid, result_table, wise_table)
 
-        # print((time.time_ns() - time_temp)/(10**(-9)))
-        # time_temp = time.time_ns()
-
-    output_filters = list(dict.fromkeys(output_filters)) # remove duplicates
-    # print(output_filters)
-    # print(result_table.colnames)
+    output_filters = list(dict.fromkeys(output_filters))  # remove duplicates
 
     return astropy_table_to_result(result_table, output_filters)
 
@@ -184,17 +175,58 @@ def gaia_table_matching(grid, table, target_query):
     nn_indices = np.concatenate(nn_indices)
     nn_indices_filtered = [nn_indices[i] if nn_dist[i] < 0.000833 else 0 for i in range(0, len(nn_indices))]
 
-    # non_duplicate_cols = [target_col if target_col in table.colnames else "" for target_col in target_table.colnames]
-
-    non_duplicate_cols = list(numpy.intersect1d(np.array(target_table.colnames),
-                                                np.setxor1d(np.array(target_table.colnames), np.array(table.colnames))))
-    print(non_duplicate_cols)
-    target_table = target_table[non_duplicate_cols]
+    duplicate_cols = list(numpy.intersect1d(np.array(target_table.colnames),
+                                            np.intersect1d(np.array(target_table.colnames),
+                                                           np.array(table.colnames))))
+    for col in duplicate_cols:
+        table.rename_column(col, col + '1')
+        target_table.rename_column(col, col + '2')
 
     nn_indices_col = astropy.table.column.Column(data=np.array(nn_indices_filtered), name='id')
     target_table.add_column(nn_indices_col, 0)
-    print(target_table.colnames)
-    return astropy.table.join(left=table, right=target_table, keys='id', join_type='left')
+
+    joined_table = astropy.table.join(left=table, right=target_table, keys='id', join_type='left')
+
+    joined_table = astropy.table.Table(joined_table, masked=True)
+
+    for col in duplicate_cols:
+        if col == 'RAJ2000' or col == 'DEJ2000':
+            average = np.add(joined_table[col + '1'], joined_table[col + '2']) / 2
+            new_col = astropy.table.column.Column(data=np.array(average), name=col)
+            del joined_table[col + '1']
+            del joined_table[col + '2']
+            joined_table.add_column(new_col)
+        else:
+            if 'e_' not in col:
+                e_col = 'e_' + col
+
+                joined_table[e_col+'2'].filled(np.nan)
+
+                compare_1 = joined_table[e_col + '1'].data
+                compare_2 = joined_table[e_col + '2'].data
+                compare_1.mask = np.ma.nomask
+                compare_2 = compare_2.filled(np.nan)
+                compare_small = compare_1 < compare_2
+                b_nan = np.isnan(compare_2)
+                table_1_bool = np.array(np.logical_xor(compare_small, b_nan))
+                table_1_rows = np.where(table_1_bool)[0]
+                table_1 = joined_table[table_1_rows]
+
+                table_1.rename_column(col+'1', col)
+                table_1.rename_column(e_col+'1', e_col)
+                del table_1[col+'2']
+                del table_1[e_col+'2']
+
+                table_2_rows = np.where(np.invert(table_1_bool))[0]
+                table_2 = joined_table[table_2_rows]
+                table_2.rename_column(col+'2', col)
+                table_2.rename_column(e_col+'2', e_col)
+                del table_2[col+'1']
+                del table_2[e_col+'1']
+
+                joined_table = astropy.table.vstack([table_1, table_2], join_type='exact')
+
+    return joined_table
 
 
 def astropy_table_to_result(table, filters):
@@ -205,6 +237,7 @@ def astropy_table_to_result(table, filters):
         if col in filter_mags:
             mag_columns.append(col)
     table = table[reduce(operator.or_, [~table[col].mask for col in mag_columns])]
+    # print(table.info)
     for row in table:
         result_row = dict(id=str(row['id']), isValid=True)
         for filt in filters:
