@@ -134,6 +134,9 @@ def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
         output_filters += apass_filters
         apass_columns = filters_to_columns(apass_filters)
         apass_table = scraper_query_vizier(coordinates, apass_columns, 'II/336')
+        for filt in ['g', 'r', 'i']:
+            apass_table.rename_column(filt + '_mag', filt + '\'mag')
+            apass_table.rename_column('e_' + filt + '_mag', 'e_' + filt + '\'mag')
         result_table = gaia_table_matching(grid, result_table, apass_table)
 
     if 'twomass' in catalog:
@@ -196,12 +199,14 @@ def gaia_table_matching(grid, table, target_query):
 
 def astropy_table_to_result(table, filters):
     result = []
+    print(table.info)
+    # table = table.unique(table, keys=[filt + 'mag' for filt in filters])
+    # print(table.info)
     for row in table:
         result_row = dict(id=str(row['id']), isValid=True)
         for filt in filters:
-            filt_raw = filt.replace('\'', '_')
-            result_row[filt + 'Mag'] = float(row[filt_raw + 'mag'])
-            result_row[filt + 'err'] = float(row['e_' + filt_raw + 'mag'])
+            result_row[filt + 'Mag'] = float(row[filt + 'mag'])
+            result_row[filt + 'err'] = float(row['e_' + filt + 'mag'])
             result_row[filt + 'ra'] = float(row['RA_ICRS'])
             result_row[filt + 'dec'] = float(row['DE_ICRS'])
             result_row[filt + 'pmra'] = float(row['pmRA'])
