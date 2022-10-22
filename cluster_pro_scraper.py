@@ -276,7 +276,8 @@ def scraper_query_vizier(coordinates, columns, catalog_vizier, constrain=None):
     dec = coordinates['dec']
     r = coordinates['r']
     query_coords = coord.SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame='icrs')
-    vquery = Vizier(columns=columns, row_limit=30000)
+    max_row_limit = 50000
+    vquery = Vizier(columns=columns, row_limit=max_row_limit)
     constrain_filter = {}
     if constrain:
         constrain_filter = {'pmRA': str(constrain['pmra']['min']) + ' .. ' + str(constrain['pmra']['max']),
@@ -289,6 +290,9 @@ def scraper_query_vizier(coordinates, columns, catalog_vizier, constrain=None):
                                 catalog=catalog_vizier,
                                 column_filters=constrain_filter
                                 )[0]
+    print(len(query))
+    if len(query) == max_row_limit:
+        raise Exception('Radius too big')
     # print(query.info)
     return query
 

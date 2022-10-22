@@ -137,21 +137,24 @@ def get_object_location():
 def get_vizier_photometry():
     tb = sys.exc_info()[2]
     try:
-        ra: float = float(request.args['ra'])
-        dec: float = float(request.args['dec'])
-        r: float = float(request.args['r'])
-        coordinates = coordinates_to_dist(ra, dec, r)
-        catalog = request.args['catalog']
-        file_key = request.args['keys']
-        file_data = request.args['data']
-        constrain = request.args['constrain']
-        if not catalog:
-            raise error({'error': 'no catalog!'})
+        try:
+            ra: float = float(request.args['ra'])
+            dec: float = float(request.args['dec'])
+            r: float = float(request.args['r'])
+            coordinates = coordinates_to_dist(ra, dec, r)
+            catalog = request.args['catalog']
+            file_key = request.args['keys']
+            file_data = request.args['data']
+            constrain = request.args['constrain']
+            if not catalog:
+                raise error({'error': 'no catalog!'})
+        except Exception as e:
+            raise error({'error': 'Object input invalid type'})
+        return json.dumps(
+            scraper_query(coordinates, constrain, catalog, file_key, file_data)
+        ).replace("NaN", "null")
     except Exception as e:
-        raise error({'error': 'Object input invalid type'})
-    return json.dumps(
-        scraper_query(coordinates, constrain, catalog, file_key, file_data)
-    ).replace("NaN", "null")
+        return json.dumps({'failure': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
 def main():
