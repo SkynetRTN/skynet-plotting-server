@@ -61,13 +61,6 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
     dt = time[1] - time[0]
     
 
-    #----------------------------------------------------------------
-    # Plot the Amplitude Spectral Density (ASD)
-    #
-    # The ASDs are the square root of the power spectral densities (PSDs), which are averages of the square of the fast fourier transforms (FFTs) of the data.
-    #
-    # They are an estimate of the "strain-equivalent noise" of the detectors versus frequency, which limit the ability of the detectors to identify GW signals.
-    
 
     if whiten_data:
         # number of sample for the fast fourier transform:
@@ -88,15 +81,15 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         strain_whitenbp = filtfilt(bb, ab, strain_whiten) / normalization
         return np.concatenate((time.reshape(-1,1), strain_whitenbp.reshape(-1,1)), axis=1)
 
-    # create_spectrogram = 1
+    # Finds the spectrogram and plots it. Returns the figure and the spectrogram object
     if plot_spectrogram:
-        deltat = 0.3  # hardcoded to plot 5 seconds centered on merger - can change
+        timewindow = 0.05  # hardcoded to plot 5 seconds centered on merger - can change
 
         ## Using GWPY to make graph
         strain_timeseries = TimeSeries(strain, times=time)
 
         midpoint = (gpsStart + gpsEnd)/2
-        window = (gpsEnd-gpsStart)*0.05
+        window = (gpsEnd-gpsStart)*timewindow
 
         hq = strain_timeseries.q_transform(outseg=(midpoint-window, midpoint+window), norm=False)
         fig = hq.plot()
@@ -110,20 +103,60 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
 
         return fig, hq
 
+def find_merger(spec_array, THRESHOLD=5 * 10**-14):
+    row_event_count = []
+    col_event_count = []
+    # print(spec_array[0].shape)
+    col_maxval_count = np.zeros(spec_array.shape[1])
+    row_maxval_count = np.zeros(spec_array.shape[0])
+    for row in spec_array:
+        boolrow = row >= THRESHOLD
+        row_event_count.append(np.count_nonzero(boolrow))
 
-# figor, hq = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
-# print(hq)
-# # print(hq.name)
-# # print(hq.x0)
-# # print(hq.dx)
-# # print(hq.dy)
-# # print(hq.y0)
-# # print(hq.yindex)
-# # print(hq.xindex)
-# figor.savefig("specplot_test.png")
-# extracted_model = extract_model_from_spectrogram(1.175, 62.797, 1126259462.4, hq)
-# fig = matplotlib.pyplot.figure(60)
-# fig.gca().plot(extracted_model[:,0], extracted_model[:,1])
-# fig.savefig("extraction_test.png")
+        argmax_row = np.argmax(row)
+        col_maxval_count[argmax_row] += 1
+    for col in np.transpose(spec_array):
+        boolcol = col >= THRESHOLD
+        col_event_count.append(np.count_nonzero(boolcol))
+
+        argmax_col = np.argmax(col)
+        row_maxval_count[argmax_col] += 1
+
+    return col_maxval_count, row_maxval_count, col_event_count, row_event_count
+
+
+#150914
+file_name = "L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5"
+#190814
+# file_name = "L-L1_GWOSC_16KHZ_R1-1249852241-32.hdf5"
+
+figor, hq = get_data_from_file(file_name, plot_spectrogram=1)
+print(hq)
+
+col_maxval_count, row_maxval_count, col_event_count, row_event_count = find_merger(hq)
+
+figor.savefig("specplot_test.png")
+fig = matplotlib.pyplot.figure(5)
+ax = fig.add_subplot()
+ax.plot(hq.yindex, col_maxval_count)
+ax.set(xscale="log")
+fig.savefig("ydim_maxvalcount.png")
+
+fig = matplotlib.pyplot.figure(6)
+ax = fig.add_subplot()
+ax.plot(hq.xindex, row_maxval_count)
+fig.savefig("xdim_maxvalcount.png")
+
+fig = matplotlib.pyplot.figure(7)
+ax = fig.add_subplot()
+ax.plot(hq.xindex, row_event_count)
+fig.savefig("xdim_eventcount.png")
+
+fig = matplotlib.pyplot.figure(8)
+ax = fig.add_subplot()
+ax.plot(hq.yindex, col_event_count)
+ax.set(xscale="log")
+fig.savefig("ydim_eventcount.png")
+
 
 
