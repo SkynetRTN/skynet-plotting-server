@@ -12,7 +12,7 @@ from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 import ast
 
-from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files_beta
+from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files
 from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
 from gravity_util import find_gravity_data
 from gaia import gaia_args_verify
@@ -58,7 +58,7 @@ def get_data_beta():
         metallicity = float(request.args['metallicity'])
         filters = json.loads(request.args['filters'])
         iSkip = get_iSkip(age, metallicity)
-        return json.dumps({'data': find_data_in_files_beta(age, metallicity, filters), 'iSkip': iSkip})
+        return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
