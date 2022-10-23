@@ -7,14 +7,14 @@ from os import error
 from tempfile import mkdtemp
 from shutil import rmtree
 import numpy as np
-from flask import Flask, json, request
-from flask_cors import CORS
+from flask import Flask, json, request, send_file
+# from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
-import ast
+# import ast
 
 from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files
 from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
-from gaia import gaia_args_verify
+# from gaia import gaia_args_verify
 from gaia_util import gaia_match
 from gravity_util import find_strain_model_data, find_frequency_model_data
 from plotligo_trimmed import get_data_from_file
@@ -39,6 +39,19 @@ def resolve_request_body() -> None:
 
 @api.route("/isochrone", methods=["GET"])
 def get_data():
+    tb = sys.exc_info()[2]
+    try:
+        age = float(request.args['age'])
+        metallicity = float(request.args['metallicity'])
+        filters = json.loads(request.args['filters'])
+        iSkip = get_iSkip(age, metallicity)
+        return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
+
+@api.route("/isochrone-beta", methods=["GET"])
+def get_data_beta():
     tb = sys.exc_info()[2]
     try:
         age = float(request.args['age'])
