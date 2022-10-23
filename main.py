@@ -7,24 +7,26 @@ from os import error
 from tempfile import mkdtemp
 from shutil import rmtree
 import numpy as np
-from flask import Flask, json, request, send_file
+from flask import Flask, json, request
+from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
-from gravity_util import find_strain_model_data, find_frequency_model_data
 import ast
-from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files_beta
+
+from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files
+from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
 from gaia import gaia_args_verify
 from gaia_util import gaia_match
+from gravity_util import find_strain_model_data, find_frequency_model_data
 from plotligo_trimmed import get_data_from_file
 from bestFit import fitToData
 
 
 api = Flask(__name__)
 
-#test
-# from flask_cors import CORS
 # CORS(api)
 # api.debug = True
 
+#test
 @api.before_request
 def resolve_request_body() -> None:
     ds = [request.args, request.form]
@@ -33,6 +35,7 @@ def resolve_request_body() -> None:
         ds.append(MultiDict(body.items()))
 
     request.args = CombinedMultiDict(ds)
+
 
 @api.route("/isochrone", methods=["GET"])
 def get_data():
@@ -46,18 +49,6 @@ def get_data():
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
-
-@api.route("/isochrone-beta", methods=["GET"])
-def get_data_beta():
-    tb = sys.exc_info()[2]
-    try:
-        age = float(request.args['age'])
-        metallicity = float(request.args['metallicity'])
-        filters = json.loads(request.args['filters'])
-        iSkip = get_iSkip(age, metallicity)
-        return json.dumps({'data': find_data_in_files_beta(age, metallicity, filters), 'iSkip': -1})
-    except Exception as e:
-        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
 @api.route("/gravity", methods=["GET"])
@@ -133,11 +124,45 @@ def get_gaia():
         except:
             raise error({'error': 'GAIA Input invalid type'})
         result = gaia_match(data, range)
-        if result == []:
+        if not result:
             raise error('No Match in Gaia')
         return json.dumps(result)
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
+
+@api.route("/location-query", methods=["get"])
+def get_object_location():
+    tb = sys.exc_info()[2]
+    try:
+        object = request.args['object']
+    except:
+        raise error({'error': 'Object input invalid type'})
+    return json.dumps(scraper_query_object_local(object))
+
+
+@api.route("/vizier-query", methods=["post"])
+def get_vizier_photometry():
+    tb = sys.exc_info()[2]
+    try:
+        try:
+            ra: float = float(request.args['ra'])
+            dec: float = float(request.args['dec'])
+            r: float = float(request.args['r'])
+            coordinates = coordinates_to_dist(ra, dec, r)
+            catalog = request.args['catalog']
+            file_key = request.args['keys']
+            file_data = request.args['data']
+            constrain = request.args['constrain']
+            if not catalog:
+                raise error({'error': 'no catalog!'})
+        except Exception as e:
+            raise error({'error': 'Object input invalid type'})
+        return json.dumps(
+            scraper_query(coordinates, constrain, catalog, file_key, file_data)
+        ).replace("NaN", "null")
+    except Exception as e:
+        return json.dumps({'failure': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
 def main():

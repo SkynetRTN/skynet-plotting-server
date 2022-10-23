@@ -6,29 +6,6 @@ import numpy as np
 cols = [
     "junk",
     "junk",
-    "junk",
-    "U",
-    "B",
-    "V",
-    "R",
-    "I",
-    "Jx",
-    "Hx",
-    "Kx",
-    "uprime",
-    "gprime",
-    "rprime",
-    "iprime",
-    "zprime",
-    "J",  # TODO: make these distinct
-    "H",
-    "Ks",
-    "junk",
-]
-
-beta_cols = [
-    "junk",
-    "junk",
     "U",
     "B",
     "V",
@@ -47,8 +24,8 @@ beta_cols = [
     "W3",
     "W4",
     "G",
-    "GBP",
-    "GRP",
+    "BP",
+    "RP",
     "junk",
 ]
 
@@ -80,40 +57,6 @@ def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
 
         # r_data = list(zip(*[data[:, cols.index(i)] for i in filters]))
     except:
-        raise error({"error": "Requested filter not found"})
-    # return
-    return r_data
-
-
-def find_data_in_files_beta(age: float, metallicity: float, filters: list) -> list:
-    # attempt to retrieve data from files
-    try:
-        data = np.load(
-            os.path.join(
-                os.path.dirname(__file__),
-                "iso-npy-data-beta",
-                f"Girardi_{age:.2f}_{metallicity:.2f}.npy",
-            )
-        )
-
-    except FileNotFoundError:
-        try:
-            return find_data_in_files(age, metallicity, filters)
-        except FileNotFoundError:
-            raise ValueError({"error": "Requested data not found"})
-
-    # format data
-    try:
-        def get_col(number: int):
-            return data[:, beta_cols.index(filters[number])]
-
-        r_data = list(
-            zip([round(a - b, 4)
-                 for a, b in zip(get_col(0), get_col(1))], get_col(2))
-        )
-
-        # r_data = list(zip(*[data[:, cols.index(i)] for i in filters]))
-    except Exception as e:
         raise error({"error": "Requested filter not found"})
     # return
     return r_data

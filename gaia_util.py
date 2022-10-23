@@ -112,7 +112,7 @@ def gaia_match(photometry, star_range):
             entrys.append(convert_usr(entry, star_range))
     except:
         raise error({'error': 'Cannot Convert User Data for GAIA Matching '})
-    if (nodes == []):
+    if not nodes:
         return result
     try:
         grispy_match = tree_matching_grispy(nodes, entrys)
