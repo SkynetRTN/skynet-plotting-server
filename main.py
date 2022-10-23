@@ -58,7 +58,7 @@ def get_data_beta():
         metallicity = float(request.args['metallicity'])
         filters = json.loads(request.args['filters'])
         iSkip = get_iSkip(age, metallicity)
-        return json.dumps({'data': find_data_in_files_beta(age, metallicity, filters), 'iSkip': -1})
+        return json.dumps({'data': find_data_in_files_beta(age, metallicity, filters), 'iSkip': iSkip})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 

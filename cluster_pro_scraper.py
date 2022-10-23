@@ -290,7 +290,7 @@ def scraper_query_vizier(coordinates, columns, catalog_vizier, constrain=None):
                                 catalog=catalog_vizier,
                                 column_filters=constrain_filter
                                 )[0]
-    print(len(query))
+    # print(len(query))
     if len(query) == max_row_limit:
         raise Exception('Radius too big')
     # print(query.info)
