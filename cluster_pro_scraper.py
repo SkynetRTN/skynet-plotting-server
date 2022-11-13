@@ -33,16 +33,13 @@ def scraper_query_object_local(query: str):
     sqlite_filename = 'MWSC.sqlite'
     conn = sqlite3.connect(sqlite_filename)
     delta = 0.05
-    try:
-        cur = conn.cursor()
-        cluster = cur.execute('SELECT * FROM MWSC WHERE ra >= ? AND ra <=? AND dec >= ? AND dec <= ?',
-                              [simbad_ra - delta, simbad_ra + delta, simbad_dec - delta, simbad_dec + delta]).fetchall()
-        if cluster:
-            cluster = cluster[0]
-            result = {'RA': cluster[2], "DEC": cluster[3], "Range": cluster[5]}
-        else:
-            result = simbad_result
-    except Exception as e:
+    cur = conn.cursor()
+    cluster = cur.execute('SELECT * FROM MWSC WHERE ra >= ? AND ra <=? AND dec >= ? AND dec <= ?',
+                          [simbad_ra - delta, simbad_ra + delta, simbad_dec - delta, simbad_dec + delta]).fetchall()
+    if cluster:
+        cluster = cluster[0]
+        result = {'RA': cluster[2], "DEC": cluster[3], "Range": cluster[5]}
+    else:
         result = simbad_result
     return result
 

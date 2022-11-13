@@ -130,7 +130,11 @@ def get_object_location():
         object = request.args['object']
     except:
         raise error({'error': 'Object input invalid type'})
-    return json.dumps(scraper_query_object_local(object))
+    try:
+        result = scraper_query_object_local(object)
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+    return json.dumps(result)
 
 
 @api.route("/vizier-query", methods=["post"])
