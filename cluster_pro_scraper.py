@@ -1,3 +1,4 @@
+import os
 import time
 
 import astroquery.gaia
@@ -30,7 +31,8 @@ def scraper_query_object_local(query: str):
     simbad_result = scraper_query_object(query)
     simbad_ra = simbad_result['RA']
     simbad_dec = simbad_result['DEC']
-    sqlite_filename = 'MWSC.sqlite'
+    sqlite_filename = os.path.join(
+        os.path.dirname(__file__), 'MWSC.sqlite')
     conn = sqlite3.connect(sqlite_filename)
     delta = 0.05
     cur = conn.cursor()
