@@ -14,10 +14,10 @@ from werkzeug.datastructures import CombinedMultiDict, MultiDict
 
 from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files
 from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
-# from gaia import gaia_args_verify
+from gravity_util import find_gravity_data
+from gaia import gaia_args_verify
 from gaia_util import gaia_match
-from gravity_util import find_strain_model_data, find_frequency_model_data
-from plotligo_trimmed import get_data_from_file
+from plotligo_trimmed import perform_whitening_on_file
 from bestFit import fitToData
 
 
@@ -26,7 +26,8 @@ api = Flask(__name__)
 # CORS(api)
 # api.debug = True
 
-#test
+
+# test
 @api.before_request
 def resolve_request_body() -> None:
     ds = [request.args, request.form]
@@ -63,50 +64,29 @@ def get_data_beta():
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
-
 @api.route("/gravity", methods=["GET"])
 def get_gravity():
     tb = sys.exc_info()[2]
     try:
         mass_ratio = float(request.args['ratioMass'])
         total_mass = float(request.args['totalMass'])
-        return json.dumps({'strain_model': find_strain_model_data(mass_ratio, total_mass), 'freq_model': find_frequency_model_data(mass_ratio, total_mass)})
+        return json.dumps({'data': find_gravity_data(mass_ratio, total_mass)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
 @api.route("/gravfile", methods=["POST"])
-def upload_process_gravdata():
+def whiten_gravdata():
     # upload_folder = 'temp-grav-data'
     tempdir = mkdtemp()
     try:
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        data = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
-        midpoint = np.round(data.shape[0]/2.0)
+        data = perform_whitening_on_file(os.path.join(tempdir, "temp-file.hdf5"))
+        midpoint = np.round(data.shape[0] / 2.0)
         buffer = np.ceil(data.shape[0] * 0.05)
-        center_of_data = data[int(midpoint-buffer): int(midpoint+buffer)]
+        center_of_data = data[int(midpoint - buffer): int(midpoint + buffer)]
         return json.dumps({'data': center_of_data.tolist()})
-    except Exception as e:
-        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
-    finally:
-        rmtree(tempdir, ignore_errors=True)
-
-
-@api.route("/gravprofile", methods=["POST"])
-def get_sepctrogram():
-    tempdir = mkdtemp()
-    try:
-        file = request.files['file']
-        file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        figure = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
-        xbounds = figure.gca().get_xlim()
-        ybounds = figure.gca().get_ylim()
-        figure.savefig(os.path.join(tempdir, "specplot.png"))
-        ret = send_file(os.path.join(tempdir, "specplot.png"), mimetype='image/png')
-        ret.headers['bounds'] = str(xbounds)+' '+str(ybounds)
-        ret.headers['Access-Control-Expose-Headers'] = 'bounds'
-        return ret
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:
@@ -151,7 +131,11 @@ def get_object_location():
         object = request.args['object']
     except:
         raise error({'error': 'Object input invalid type'})
-    return json.dumps(scraper_query_object_local(object))
+    try:
+        result = scraper_query_object_local(object)
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+    return json.dumps(result)
 
 
 @api.route("/vizier-query", methods=["post"])
