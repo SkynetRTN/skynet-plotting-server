@@ -29,3 +29,5 @@ def find_frequency_model_data(mass_ratio, total_mass):
 
     except FileNotFoundError:
         raise ValueError({"error": "Requested frequency model not found"})
+
+

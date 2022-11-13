@@ -1,5 +1,5 @@
+import base64
 import os
-import sqlite3
 import sys
 import traceback
 from os import error
@@ -12,12 +12,11 @@ from flask import Flask, json, request, send_file
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 # import ast
 
-from cluster_isochrone import get_iSkip, find_data_in_files, find_data_in_files
+from cluster_isochrone import get_iSkip, find_data_in_files
 from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
-from gravity_util import find_gravity_data
-from gaia import gaia_args_verify
+from gravity_util import find_strain_model_data, find_frequency_model_data
 from gaia_util import gaia_match
-from plotligo_trimmed import perform_whitening_on_file
+from plotligo_trimmed import get_data_from_file
 from bestFit import fitToData
 
 
@@ -70,28 +69,50 @@ def get_gravity():
     try:
         mass_ratio = float(request.args['ratioMass'])
         total_mass = float(request.args['totalMass'])
-        return json.dumps({'data': find_gravity_data(mass_ratio, total_mass)})
+        return json.dumps({'strain_model': find_strain_model_data(mass_ratio, total_mass), 'freq_model': find_frequency_model_data(mass_ratio, total_mass)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
 @api.route("/gravfile", methods=["POST"])
-def whiten_gravdata():
+def upload_process_gravdata():
     # upload_folder = 'temp-grav-data'
     tempdir = mkdtemp()
     try:
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        data = perform_whitening_on_file(os.path.join(tempdir, "temp-file.hdf5"))
-        midpoint = np.round(data.shape[0] / 2.0)
+        data = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
+        midpoint = np.round(data.shape[0]/2.0)
         buffer = np.ceil(data.shape[0] * 0.05)
-        center_of_data = data[int(midpoint - buffer): int(midpoint + buffer)]
+        center_of_data = data[int(midpoint-buffer): int(midpoint+buffer)]
         return json.dumps({'data': center_of_data.tolist()})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:
         rmtree(tempdir, ignore_errors=True)
 
+
+@api.route("/gravprofile", methods=["POST"])
+def get_sepctrogram():
+    tempdir = mkdtemp()
+    try:
+        file = request.files['file']
+        file.save(os.path.join(tempdir, "temp-file.hdf5"))
+        figure, spec_array = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
+        xbounds = figure.gca().get_xlim()
+        ybounds = figure.gca().get_ylim()
+        figure.savefig(os.path.join(tempdir, "specplot.png"))
+
+        with open(os.path.join(tempdir, "specplot.png"), "rb") as image2string:
+            encoded_image = base64.b64encode(image2string.read())
+
+        return json.dumps({'image': str(encoded_image), 'bounds': str(xbounds)+' '+str(ybounds),
+                           'spec_array': np.asarray(spec_array).tolist(), 'x0': str(spec_array.x0),
+                           'dx': str(spec_array.dx), 'y0' : str(spec_array.y0), 'dy': str(spec_array.dy)})
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+    finally:
+        rmtree(tempdir, ignore_errors=True)
 
 @api.route("/transient", methods=["POST"])
 def get_transient_bestfit():
