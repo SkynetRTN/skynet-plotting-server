@@ -173,7 +173,7 @@ def gaia_table_matching(grid, table, target_query):
     nn_dist, nn_indices = grid.nearest_neighbors(target_cord, n=1)
     nn_dist = np.concatenate(nn_dist)
     nn_indices = np.concatenate(nn_indices)
-    nn_indices_filtered = [nn_indices[i] if nn_dist[i] < 0.000833 else 0 for i in range(0, len(nn_indices))]
+    nn_indices_filtered = [nn_indices[i] + 1 if nn_dist[i] < 0.000833 else 0 for i in range(0, len(nn_indices))]
 
     duplicate_cols = list(numpy.intersect1d(np.array(target_table.colnames),
                                             np.intersect1d(np.array(target_table.colnames),
@@ -247,13 +247,14 @@ def astropy_table_to_result(table, filters):
             result_row[filt + 'dec'] = float(row['DE_ICRS'])
             result_row[filt + 'pmra'] = float(row['pmRA'])
             result_row[filt + 'pmdec'] = float(row['pmDE'])
-            result_row[filt + 'dist'] = float(row['Dist'])
+            # result_row[filt + 'dist'] = float(row['Dist'])
+            result_row[filt + 'dist'] = None if float(row['Plx']) == 0 else 1000/float(row['Plx'])
         result.append(result_row)
     return {'data': result, 'filters': filters}
 
 
 def scraper_query_gaia(coordinates, constrain):
-    columns = ['RA_ICRS', 'DE_ICRS', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Dist']
+    columns = ['RA_ICRS', 'DE_ICRS', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Dist', 'Plx']
     columns += ['Gmag', 'e_Gmag', 'BPmag', 'e_BPmag', 'RPmag', 'e_RPmag']
 
     gaia_table = scraper_query_vizier(coordinates, columns, 'I/355/gaiadr3', constrain)
@@ -282,7 +283,7 @@ def scraper_query_vizier(coordinates, columns, catalog_vizier, constrain=None):
     if constrain:
         constrain_filter = {'pmRA': str(constrain['pmra']['min']) + ' .. ' + str(constrain['pmra']['max']),
                             'pmDE': str(constrain['pmdec']['min']) + ' .. ' + str(constrain['pmdec']['max']),
-                            'Dist': str(constrain['distance']['min']) + ' .. ' + str(constrain['distance']['max']),
+                            # 'Dist': str(constrain['distance']['min']) + ' .. ' + str(constrain['distance']['max']),
                             }
     # print(constrain_filter)
     query = vquery.query_region(query_coords,
