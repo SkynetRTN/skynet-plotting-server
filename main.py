@@ -7,10 +7,9 @@ from os import error
 from tempfile import mkdtemp
 from shutil import rmtree
 import numpy as np
-from flask import Flask, json, request, send_file
-# from flask_cors import CORS
+from flask import Flask, json, request
+from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
-# import ast
 
 from cluster_isochrone import get_iSkip, find_data_in_files
 from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
@@ -22,8 +21,8 @@ from bestFit import fitToData
 
 api = Flask(__name__)
 
-# CORS(api)
-# api.debug = True
+CORS(api)
+api.debug = True
 
 
 # test
