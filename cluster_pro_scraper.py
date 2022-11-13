@@ -1,5 +1,6 @@
 import time
 
+import astroquery.gaia
 import numpy
 import numpy as np
 from astroquery.simbad import Simbad
@@ -14,6 +15,8 @@ import operator
 from functools import reduce
 
 from gaia_util import gaia_match
+
+max_row_limit = 50000
 
 
 def scraper_query_object(query: str):
@@ -47,7 +50,7 @@ def scraper_query_object_local(query: str):
 def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
     time_temp = time.time_ns()
 
-    gaia = scraper_query_gaia(coordinates, constrain)
+    gaia = scraper_query_gaia_esac(coordinates, constrain)
 
     # print("GAIA Fetch Finished:")
     # print((time.time_ns() - time_temp)/(10**(-9)))
@@ -127,12 +130,18 @@ def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
         result_table = gaia_table_matching(grid, result_table, file_table)
 
     if 'gaia' in catalog:
-        output_filters += ['G', 'BP', 'RP']
+        gaia_filters = ['G', 'BP', 'RP']
+        output_filters += gaia_filters
+        gaia_columns = filters_to_columns(gaia_filters, ['RA_ICRS', 'DE_ICRS'])
+        gaia_table = scraper_query_vizier(coordinates, gaia_columns, 'I/355/gaiadr3')
+        gaia_table.rename_column('RA_ICRS', 'RAJ2000')
+        gaia_table.rename_column('DE_ICRS', 'DEJ2000')
+        result_table = gaia_table_matching(grid, result_table, gaia_table)
 
     if 'apass' in catalog:
         apass_filters = ['V', 'B', 'g\'', 'r\'', 'i\'']
         output_filters += apass_filters
-        apass_columns = filters_to_columns(apass_filters)
+        apass_columns = filters_to_columns(apass_filters, ['RAJ2000', 'DEJ2000'])
         apass_table = scraper_query_vizier(coordinates, apass_columns, 'II/336')
         for filt in ['g', 'r', 'i']:
             apass_table.rename_column(filt + '_mag', filt + '\'mag')
@@ -142,14 +151,14 @@ def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
     if 'twomass' in catalog:
         two_mass_filters = ['J', 'H', 'K']
         output_filters += two_mass_filters
-        two_mass_columns = filters_to_columns(two_mass_filters)
+        two_mass_columns = filters_to_columns(two_mass_filters, ['RAJ2000', 'DEJ2000'])
         two_mass_table = scraper_query_vizier(coordinates, two_mass_columns, 'II/246/out')
         result_table = gaia_table_matching(grid, result_table, two_mass_table)
 
     if 'wise' in catalog:
         wise_filters = ['W1', 'W2', 'W3', 'W4']
         output_filters += wise_filters
-        wise_columns = filters_to_columns(wise_filters)
+        wise_columns = filters_to_columns(wise_filters, ['RAJ2000', 'DEJ2000'])
         wise_table = scraper_query_vizier(coordinates, wise_columns, 'II/328/allwise')
 
         result_table = gaia_table_matching(grid, result_table, wise_table)
@@ -159,15 +168,15 @@ def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
     return astropy_table_to_result(result_table, output_filters)
 
 
-def filters_to_columns(filters):
-    result = ['RAJ2000', 'DEJ2000']
+def filters_to_columns(filters, ra_dec):
+    result = ra_dec
     for filt in filters:
         result.append(filt + 'mag')
         result.append('e_' + filt + 'mag')
     return result
 
 
-def gaia_table_matching(grid, table, target_query):
+def gaia_table_matching(grid, table, target_query, join_type='left'):
     target_table = target_query
     target_cord = np.dstack((np.array(target_table['RAJ2000']), np.array(target_table['DEJ2000'])))[0]
     nn_dist, nn_indices = grid.nearest_neighbors(target_cord, n=1)
@@ -185,7 +194,7 @@ def gaia_table_matching(grid, table, target_query):
     nn_indices_col = astropy.table.column.Column(data=np.array(nn_indices_filtered), name='id')
     target_table.add_column(nn_indices_col, 0)
 
-    joined_table = astropy.table.join(left=table, right=target_table, keys='id', join_type='left')
+    joined_table = astropy.table.join(left=table, right=target_table, keys='id', join_type=join_type)
 
     joined_table = astropy.table.Table(joined_table, masked=True)
 
@@ -200,7 +209,7 @@ def gaia_table_matching(grid, table, target_query):
             if 'e_' not in col:
                 e_col = 'e_' + col
 
-                joined_table[e_col+'2'].filled(np.nan)
+                joined_table[e_col + '2'].filled(np.nan)
 
                 compare_1 = joined_table[e_col + '1'].data
                 compare_2 = joined_table[e_col + '2'].data
@@ -212,17 +221,17 @@ def gaia_table_matching(grid, table, target_query):
                 table_1_rows = np.where(table_1_bool)[0]
                 table_1 = joined_table[table_1_rows]
 
-                table_1.rename_column(col+'1', col)
-                table_1.rename_column(e_col+'1', e_col)
-                del table_1[col+'2']
-                del table_1[e_col+'2']
+                table_1.rename_column(col + '1', col)
+                table_1.rename_column(e_col + '1', e_col)
+                del table_1[col + '2']
+                del table_1[e_col + '2']
 
                 table_2_rows = np.where(np.invert(table_1_bool))[0]
                 table_2 = joined_table[table_2_rows]
-                table_2.rename_column(col+'2', col)
-                table_2.rename_column(e_col+'2', e_col)
-                del table_2[col+'1']
-                del table_2[e_col+'1']
+                table_2.rename_column(col + '2', col)
+                table_2.rename_column(e_col + '2', e_col)
+                del table_2[col + '1']
+                del table_2[e_col + '1']
 
                 joined_table = astropy.table.vstack([table_1, table_2], join_type='exact')
 
@@ -243,53 +252,76 @@ def astropy_table_to_result(table, filters):
         for filt in filters:
             result_row[filt + 'Mag'] = float(row[filt + 'mag'])
             result_row[filt + 'err'] = float(row['e_' + filt + 'mag'])
-            result_row[filt + 'ra'] = float(row['RA_ICRS'])
-            result_row[filt + 'dec'] = float(row['DE_ICRS'])
-            result_row[filt + 'pmra'] = float(row['pmRA'])
-            result_row[filt + 'pmdec'] = float(row['pmDE'])
-            # result_row[filt + 'dist'] = float(row['Dist'])
-            result_row[filt + 'dist'] = None if float(row['Plx']) == 0 else 1000/float(row['Plx'])
+            result_row[filt + 'ra'] = float(row['ra'])
+            result_row[filt + 'dec'] = float(row['dec'])
+            result_row[filt + 'pmra'] = float(row['pmra'])
+            result_row[filt + 'pmdec'] = float(row['pmdec'])
+            result_row[filt + 'dist'] = float(row['Dist'])
         result.append(result_row)
     return {'data': result, 'filters': filters}
-
-
-def scraper_query_gaia(coordinates, constrain):
-    columns = ['RA_ICRS', 'DE_ICRS', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Dist', 'Plx']
-    columns += ['Gmag', 'e_Gmag', 'BPmag', 'e_BPmag', 'RPmag', 'e_RPmag']
-
-    gaia_table = scraper_query_vizier(coordinates, columns, 'I/355/gaiadr3', constrain)
-
-    row_len = len(gaia_table['RA_ICRS'])
-    index_col = astropy.table.column.Column(data=np.array(range(1, row_len + 1)), name='id')
-    gaia_table.add_column(index_col, 0)
-
-    gaia_coordinates = np.dstack((np.array(gaia_table['RA_ICRS']), np.array(gaia_table['DE_ICRS'])))[0]
-
-    return {'gaia_table': gaia_table, 'np_coordinates': gaia_coordinates}
 
 
 def coordinates_to_dist(ra: float, dec: float, r: float):
     return {'ra': ra, 'dec': dec, 'r': r}
 
 
-def scraper_query_vizier(coordinates, columns, catalog_vizier, constrain=None):
+def scraper_query_gaia_esac(coordinates, constrain):
+    columns = ['ra', 'dec', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'parallax', 'parallax_error']
+
+    ra = coordinates['ra']
+    dec = coordinates['dec']
+    r = u.Quantity(coordinates['r'], u.deg)
+    query_coords = coord.SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame='icrs')
+
+    astroquery.gaia.Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"
+    astroquery.gaia.Gaia.ROW_LIMIT = max_row_limit
+    gaia_table = astroquery.gaia.Gaia.cone_search_async(coordinate=query_coords, radius=r, columns=columns)
+    gaia_table = gaia_table.get_data()
+
+    if len(gaia_table) == max_row_limit:
+        raise Exception('Radius too big')
+
+    mask_prl = np.logical_and(gaia_table['parallax'] > 0,
+                              gaia_table['parallax_error'] < 1)
+    mask_pmra = gaia_table['pmra_error'] / gaia_table['pmra'] < 0.000833
+    mask_pmdec = gaia_table['pmdec_error'] / gaia_table['pmdec'] < 0.000833
+    mask = np.logical_and(mask_prl, mask_pmra, mask_pmdec)
+    gaia_table = gaia_table[mask]
+
+    dist_col = astropy.table.column.Column(data=np.array(1000 / gaia_table['parallax']), name='Dist')
+    gaia_table.add_column(dist_col)
+
+    if constrain['distance']['min']:
+        mask_dist = np.logical_and(constrain['distance']['min'] < gaia_table['Dist'],
+                                   gaia_table['Dist'] < constrain['distance']['max'])
+        gaia_table = gaia_table[mask_dist]
+    if constrain['pmra']['min']:
+        mask_pmra = np.logical_and(constrain['pmra']['min'] < gaia_table['pmra'],
+                                   gaia_table['pmra'] < constrain['pmra']['max'])
+        gaia_table = gaia_table[mask_pmra]
+    if constrain['pmdec']['min']:
+        mask_pmdec = np.logical_and(constrain['pmdec']['min'] < gaia_table['pmdec'],
+                                    gaia_table['pmdec'] < constrain['pmdec']['max'])
+        gaia_table = gaia_table[mask_pmdec]
+
+    row_len = len(gaia_table['ra'])
+    index_col = astropy.table.column.Column(data=np.array(range(1, row_len + 1)), name='id')
+    gaia_table.add_column(index_col, 0)
+
+    gaia_coordinates = np.dstack((np.array(gaia_table['ra']), np.array(gaia_table['dec'])))[0]
+
+    return {'gaia_table': gaia_table, 'np_coordinates': gaia_coordinates}
+
+
+def scraper_query_vizier(coordinates, columns, catalog_vizier):
     ra = coordinates['ra']
     dec = coordinates['dec']
     r = coordinates['r']
     query_coords = coord.SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame='icrs')
-    max_row_limit = 50000
     vquery = Vizier(columns=columns, row_limit=max_row_limit)
-    constrain_filter = {}
-    if constrain:
-        constrain_filter = {'pmRA': str(constrain['pmra']['min']) + ' .. ' + str(constrain['pmra']['max']),
-                            'pmDE': str(constrain['pmdec']['min']) + ' .. ' + str(constrain['pmdec']['max']),
-                            # 'Dist': str(constrain['distance']['min']) + ' .. ' + str(constrain['distance']['max']),
-                            }
-    # print(constrain_filter)
     query = vquery.query_region(query_coords,
                                 radius=Angle(r * u.deg),
                                 catalog=catalog_vizier,
-                                column_filters=constrain_filter
                                 )[0]
     # print(len(query))
     if len(query) == max_row_limit:
