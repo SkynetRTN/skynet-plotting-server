@@ -8,7 +8,7 @@ from tempfile import mkdtemp
 from shutil import rmtree
 import numpy as np
 from flask import Flask, json, request
-from flask_cors import CORS
+# from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 
 from cluster_isochrone import get_iSkip, find_data_in_files
@@ -21,8 +21,8 @@ from bestFit import fitToData
 
 api = Flask(__name__)
 
-CORS(api)
-api.debug = True
+# CORS(api)
+# api.debug = True
 
 
 # test
