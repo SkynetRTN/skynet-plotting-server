@@ -246,8 +246,9 @@ def astropy_table_to_result(table, filters):
             mag_columns.append(col)
     table = table[reduce(operator.or_, [~table[col].mask for col in mag_columns])]
     # print(table.info)
+    source_id = 1
     for row in table:
-        result_row = dict(id=str(row['id']), isValid=True)
+        result_row = dict(id=str(source_id), isValid=True)
         for filt in filters:
             result_row[filt + 'Mag'] = float(row[filt + 'mag'])
             result_row[filt + 'err'] = float(row['e_' + filt + 'mag'])
@@ -257,6 +258,7 @@ def astropy_table_to_result(table, filters):
             result_row[filt + 'pmdec'] = float(row['pmdec'])
             result_row[filt + 'dist'] = float(row['Dist'])
         result.append(result_row)
+        source_id += 1
     return {'data': result, 'filters': filters}
 
 
