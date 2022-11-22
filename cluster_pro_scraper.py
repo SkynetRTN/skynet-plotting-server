@@ -284,8 +284,10 @@ def scraper_query_gaia_esac(coordinates, constrain):
 
     mask_prl = np.logical_and(gaia_table['parallax'] > 0,
                               gaia_table['parallax_error'] < 1)
-    mask_pmra = gaia_table['pmra_error'] / gaia_table['pmra'] < 0.000833
-    mask_pmdec = gaia_table['pmdec_error'] / gaia_table['pmdec'] < 0.000833
+    # mask_pmra = gaia_table['pmra_error'] / gaia_table['pmra'] < 0.000833
+    # mask_pmdec = gaia_table['pmdec_error'] / gaia_table['pmdec'] < 0.000833
+    mask_pmra = abs(gaia_table['pmra_error']) - 1 * abs(gaia_table['pmra']) < 0
+    mask_pmdec = abs(gaia_table['pmdec_error']) - 1 * abs(gaia_table['pmdec']) < 0
     mask = np.logical_and(mask_prl, mask_pmra, mask_pmdec)
     gaia_table = gaia_table[mask]
 
