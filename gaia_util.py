@@ -98,6 +98,7 @@ def convert_usr(data, range):
 
 
 def gaia_match(photometry, star_range):
+    result = []
     try:
         gaia_data: list[dict] = gaia_get_data(star_range)
     except error as e:
@@ -111,13 +112,14 @@ def gaia_match(photometry, star_range):
             entrys.append(convert_usr(entry, star_range))
     except:
         raise error({'error': 'Cannot Convert User Data for GAIA Matching '})
+    if not nodes:
+        return result
     try:
         grispy_match = tree_matching_grispy(nodes, entrys)
         distance = grispy_match[0]
         matched = grispy_match[1]
-    except:
+    except Exception as e:
         raise error({'error': 'KD-Tree Failure'})
-    result = []
     for i in range(len(photometry)):
         query = photometry[i]
         gaia = gaia_data[matched[i][0]]

@@ -1,6 +1,5 @@
 import base64
 import os
-import sqlite3
 import sys
 import traceback
 from os import error
@@ -8,10 +7,13 @@ from os import error
 from tempfile import mkdtemp
 from shutil import rmtree
 import numpy as np
-from flask import Flask, json, request, send_file
-from flask_cors import CORS
+from flask import Flask, json, request
+# from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
-from gravity_util import find_strain_model_data, find_frequency_model_data, extract_model_from_spectrogram
+
+from cluster_isochrone import get_iSkip, find_data_in_files
+from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
+from gravity_util import find_strain_model_data, find_frequency_model_data
 from gaia_util import gaia_match
 from plotligo_trimmed import get_data_from_file
 from bestFit import fitToData
@@ -19,10 +21,11 @@ from bestFit import fitToData
 
 api = Flask(__name__)
 
-CORS(api)
-api.debug = True
+# CORS(api)
+# api.debug = True
 
-#test
+
+# test
 @api.before_request
 def resolve_request_body() -> None:
     ds = [request.args, request.form]
@@ -32,81 +35,22 @@ def resolve_request_body() -> None:
 
     request.args = CombinedMultiDict(ds)
 
-cols = [
-    "junk",
-    "junk",
-    "junk",
-    "U",
-    "B",
-    "V",
-    "R",
-    "I",
-    "Jx",
-    "Hx",
-    "Kx",
-    "uprime",
-    "gprime",
-    "rprime",
-    "iprime",
-    "zprime",
-    "J",  # TODO: make these distinct
-    "H",
-    "Ks",
-    "junk",
-]
-
-
-def find_data_in_files(age: float, metallicity: float, filters: list) -> list:
-
-    # attempt to retrieve data from files
-    try:
-        data = np.load(
-            os.path.join(
-                os.path.dirname(__file__),
-                "iso-npy-data",
-                f"Girardi_{age:.2f}_{metallicity:.2f}.npy",
-            )
-        )
-
-    except FileNotFoundError:
-        raise ValueError({"error": "Requested data not found"})
-    # format data
-    try:
-
-        def get_col(number: int):
-            return data[:, cols.index(filters[number])]
-
-        r_data = list(
-            zip([round(a - b, 4)
-                for a, b in zip(get_col(0), get_col(1))], get_col(2))
-        )
-
-        # r_data = list(zip(*[data[:, cols.index(i)] for i in filters]))
-    except:
-        raise error({"error": "Requested filter not found"})
-    # return
-    return r_data
-
-
-def get_iSkip(age, metallicity):
-    iSkip_file = os.path.join(os.path.dirname(__file__), 'iSkip.sqlite')
-    conn = sqlite3.connect(iSkip_file)
-    result = -1
-    try:
-        cur = conn.cursor()
-        sources = cur.execute(
-            'SELECT * FROM iSkip_forsql WHERE age = ? AND metallicity = ?', [age, metallicity]).fetchall()
-        if sources != []:
-            result = sources[0][2]
-    except:
-        raise error({"error": "Cannot Pull from iSkip Database"})
-    finally:
-        conn.close()
-    return result
-
 
 @api.route("/isochrone", methods=["GET"])
 def get_data():
+    tb = sys.exc_info()[2]
+    try:
+        age = float(request.args['age'])
+        metallicity = float(request.args['metallicity'])
+        filters = json.loads(request.args['filters'])
+        iSkip = get_iSkip(age, metallicity)
+        return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
+
+@api.route("/isochrone-beta", methods=["GET"])
+def get_data_beta():
     tb = sys.exc_info()[2]
     try:
         age = float(request.args['age'])
@@ -193,11 +137,49 @@ def get_gaia():
         except:
             raise error({'error': 'GAIA Input invalid type'})
         result = gaia_match(data, range)
-        if result == []:
+        if not result:
             raise error('No Match in Gaia')
         return json.dumps(result)
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+
+
+@api.route("/location-query", methods=["get"])
+def get_object_location():
+    tb = sys.exc_info()[2]
+    try:
+        object = request.args['object']
+    except:
+        raise error({'error': 'Object input invalid type'})
+    try:
+        result = scraper_query_object_local(object)
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+    return json.dumps(result)
+
+
+@api.route("/vizier-query", methods=["post"])
+def get_vizier_photometry():
+    tb = sys.exc_info()[2]
+    try:
+        try:
+            ra: float = float(request.args['ra'])
+            dec: float = float(request.args['dec'])
+            r: float = float(request.args['r'])
+            coordinates = coordinates_to_dist(ra, dec, r)
+            catalog = request.args['catalog']
+            file_key = request.args['keys']
+            file_data = request.args['data']
+            constrain = request.args['constrain']
+            if not catalog:
+                raise error({'error': 'no catalog!'})
+        except Exception as e:
+            raise error({'error': 'Object input invalid type'})
+        return json.dumps(
+            scraper_query(coordinates, constrain, catalog, file_key, file_data)
+        ).replace("NaN", "null")
+    except Exception as e:
+        return json.dumps({'failure': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
 def main():
