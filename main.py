@@ -49,19 +49,6 @@ def get_data():
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
-@api.route("/isochrone-beta", methods=["GET"])
-def get_data_beta():
-    tb = sys.exc_info()[2]
-    try:
-        age = float(request.args['age'])
-        metallicity = float(request.args['metallicity'])
-        filters = json.loads(request.args['filters'])
-        iSkip = get_iSkip(age, metallicity)
-        return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
-    except Exception as e:
-        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
-
-
 @api.route("/gravity", methods=["GET"])
 def get_gravity():
     tb = sys.exc_info()[2]
