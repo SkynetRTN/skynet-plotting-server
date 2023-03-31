@@ -279,9 +279,6 @@ def scraper_query_gaia_esac(coordinates, constrain):
     gaia_table = astroquery.gaia.Gaia.cone_search_async(coordinate=query_coords, radius=r, columns=columns)
     gaia_table = gaia_table.get_data()
 
-    if len(gaia_table) == max_row_limit:
-        raise Exception('Radius too big')
-
     mask_prl = np.logical_and(gaia_table['parallax'] > 0,
                               gaia_table['parallax_error'] < 1)
     # mask_pmra = gaia_table['pmra_error'] / gaia_table['pmra'] < 0.000833
@@ -313,7 +310,8 @@ def scraper_query_gaia_esac(coordinates, constrain):
     gaia_table.add_column(index_col, 0)
 
     gaia_coordinates = np.dstack((np.array(gaia_table['ra']), np.array(gaia_table['dec'])))[0]
-
+    if len(gaia_table) == max_row_limit:
+        raise Exception('Radius too big')
     return {'gaia_table': gaia_table, 'np_coordinates': gaia_coordinates}
 
 
