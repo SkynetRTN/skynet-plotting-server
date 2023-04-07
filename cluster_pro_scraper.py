@@ -1,19 +1,20 @@
+import operator
 import os
+import sqlite3
 import time
+from functools import reduce
 
+import astropy
+import astropy.coordinates as coord
+import astropy.table
+import astropy.units as u
 import astroquery.gaia
+import grispy as gsp
 import numpy
 import numpy as np
+from astropy.coordinates import Angle
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
-from astropy.coordinates import Angle
-import astropy
-import astropy.units as u
-import astropy.coordinates as coord
-import sqlite3
-import grispy as gsp
-import operator
-from functools import reduce
 
 from gaia_util import gaia_match
 
@@ -49,7 +50,7 @@ def scraper_query_object_local(query: str):
 def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
     time_temp = time.time_ns()
 
-    gaia = scraper_query_gaia_esac(coordinates, constrain)
+    gaia = scraper_query_gaia_esac(coordinates, constrain, 'gaia' in catalog)
 
     # print("GAIA Fetch Finished:")
     # print((time.time_ns() - time_temp)/(10**(-9)))
@@ -131,11 +132,6 @@ def scraper_query(coordinates, constrain, catalog, file_keys, file_data):
     if 'gaia' in catalog:
         gaia_filters = ['G', 'BP', 'RP']
         output_filters += gaia_filters
-        gaia_columns = filters_to_columns(gaia_filters, ['RA_ICRS', 'DE_ICRS'])
-        gaia_table = scraper_query_vizier(coordinates, gaia_columns, 'I/355/gaiadr3')
-        gaia_table.rename_column('RA_ICRS', 'RAJ2000')
-        gaia_table.rename_column('DE_ICRS', 'DEJ2000')
-        result_table = gaia_table_matching(grid, result_table, gaia_table)
 
     if 'apass' in catalog:
         apass_filters = ['V', 'B', 'g\'', 'r\'', 'i\'']
@@ -266,52 +262,57 @@ def coordinates_to_dist(ra: float, dec: float, r: float):
     return {'ra': ra, 'dec': dec, 'r': r}
 
 
-def scraper_query_gaia_esac(coordinates, constrain):
-    columns = ['ra', 'dec', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'parallax', 'parallax_error']
+def scraper_query_gaia_esac(coordinates, constrain, is_phot):
+    catalog = "gaiadr3.gaia_source"
+    columns = "ra, dec, pmra, pmra_error, pmdec, pmdec_error, parallax, parallax_error"
+    if is_phot:
+        columns += ", phot_g_mean_mag, phot_bp_mean_mag, phot_rp_mean_mag, " \
+                   "phot_g_mean_flux_over_error, phot_bp_mean_flux_over_error, phot_rp_mean_flux_over_error"
+    query = "SELECT top {max_rows} {columns} FROM {catalog} WHERE 1=CONTAINS(POINT({ra}, {dec}),CIRCLE(ra, dec, {radius}))".format(
+        max_rows=max_row_limit, columns=columns, catalog=catalog, ra=coordinates['ra'], dec=coordinates['dec'], radius=coordinates['r'])
+    if (constrain['distance']['max'] and constrain['distance']['min']):
+        min_parallax = 1000 / float(constrain['distance']['max'])
+        max_parallax = 1000 / float(constrain['distance']['min'])
+        query += " AND parallax BETWEEN {min_parallax} AND {max_parallax}" \
+                 " AND parallax_error < 1".format(min_parallax=min_parallax, max_parallax=max_parallax)
+    if (constrain['pmra']['min'] and constrain['pmra']['max']):
+        min_pmra = float(constrain['pmra']['min'])
+        max_pmra = float(constrain['pmra']['max'])
+        query += " AND pmra BETWEEN {min_pmra} AND {max_pmra}".format(min_pmra=min_pmra, max_pmra=max_pmra)
+    if (constrain['pmdec']['min'] and constrain['pmdec']['max']):
+        min_pmdec = float(constrain['pmdec']['min'])
+        max_pmdec = float(constrain['pmdec']['max'])
+        query += " AND pmdec BETWEEN {min_pmdec} AND {max_pmdec}".format(min_pmdec = min_pmdec, max_pmdec = max_pmdec)
 
-    ra = coordinates['ra']
-    dec = coordinates['dec']
-    r = u.Quantity(coordinates['r'], u.deg)
-    query_coords = coord.SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame='icrs')
-
-    astroquery.gaia.Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"
-    astroquery.gaia.Gaia.ROW_LIMIT = max_row_limit
-    gaia_table = astroquery.gaia.Gaia.cone_search_async(coordinate=query_coords, radius=r, columns=columns)
-    gaia_table = gaia_table.get_data()
-
-    mask_prl = np.logical_and(gaia_table['parallax'] > 0,
-                              gaia_table['parallax_error'] < 1)
-    # mask_pmra = gaia_table['pmra_error'] / gaia_table['pmra'] < 0.000833
-    # mask_pmdec = gaia_table['pmdec_error'] / gaia_table['pmdec'] < 0.000833
-    # mask_pmra = abs(gaia_table['pmra_error']) - 1 * abs(gaia_table['pmra']) < 0
-    # mask_pmdec = abs(gaia_table['pmdec_error']) - 1 * abs(gaia_table['pmdec']) < 0
-    # mask = np.logical_and(mask_prl, mask_pmra, mask_pmdec)
-    mask = mask_prl
-    gaia_table = gaia_table[mask]
-
-    dist_col = astropy.table.column.Column(data=np.array(1000 / gaia_table['parallax']), name='Dist')
-    gaia_table.add_column(dist_col)
-
-    if constrain['distance']['min']:
-        mask_dist = np.logical_and(constrain['distance']['min'] < gaia_table['Dist'],
-                                   gaia_table['Dist'] < constrain['distance']['max'])
-        gaia_table = gaia_table[mask_dist]
-    if constrain['pmra']['min']:
-        mask_pmra = np.logical_and(constrain['pmra']['min'] < gaia_table['pmra'],
-                                   gaia_table['pmra'] < constrain['pmra']['max'])
-        gaia_table = gaia_table[mask_pmra]
-    if constrain['pmdec']['min']:
-        mask_pmdec = np.logical_and(constrain['pmdec']['min'] < gaia_table['pmdec'],
-                                    gaia_table['pmdec'] < constrain['pmdec']['max'])
-        gaia_table = gaia_table[mask_pmdec]
-
+    gaia_table = astroquery.gaia.Gaia.launch_job(query).results
+    # create index column
     row_len = len(gaia_table['ra'])
     index_col = astropy.table.column.Column(data=np.array(range(1, row_len + 1)), name='id')
     gaia_table.add_column(index_col, 0)
-
+    # create distance column
+    dist_col = astropy.table.column.Column(data=np.array(1000 / gaia_table['parallax']), name='Dist')
+    del gaia_table['parallax']
+    del gaia_table['parallax_error']
+    gaia_table.add_column(dist_col)
+    if is_phot:
+        # calculate errors
+        g_err_col = astropy.table.column.Column(
+            data=np.array(gaia_table['phot_g_mean_mag'] / gaia_table['phot_g_mean_flux_over_error']), name='e_Gmag')
+        del gaia_table['phot_g_mean_flux_over_error']
+        gaia_table.add_column(g_err_col)
+        bp_err_col = astropy.table.column.Column(
+            data=np.array(gaia_table['phot_bp_mean_mag'] / gaia_table['phot_bp_mean_flux_over_error']), name='e_BPmag')
+        del gaia_table['phot_bp_mean_flux_over_error']
+        gaia_table.add_column(bp_err_col)
+        rp_err_col = astropy.table.column.Column(
+            data=np.array(gaia_table['phot_rp_mean_mag'] / gaia_table['phot_rp_mean_flux_over_error']), name='e_RPmag')
+        del gaia_table['phot_rp_mean_flux_over_error']
+        gaia_table.add_column(rp_err_col)
+        # rename phot columns
+        gaia_table.rename_column('phot_g_mean_mag', 'Gmag')
+        gaia_table.rename_column('phot_bp_mean_mag', 'BPmag')
+        gaia_table.rename_column('phot_rp_mean_mag', 'RPmag')
     gaia_coordinates = np.dstack((np.array(gaia_table['ra']), np.array(gaia_table['dec'])))[0]
-    if len(gaia_table) == max_row_limit:
-        raise Exception('Radius too big')
     return {'gaia_table': gaia_table, 'np_coordinates': gaia_coordinates}
 
 
