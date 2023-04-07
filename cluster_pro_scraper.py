@@ -18,7 +18,7 @@ from astroquery.vizier import Vizier
 
 from gaia_util import gaia_match
 
-max_row_limit = 50000
+MAX_ROW_LIMIT = 50000
 
 
 def scraper_query_object(query: str):
@@ -269,7 +269,7 @@ def scraper_query_gaia_esac(coordinates, constrain, is_phot):
         columns += ", phot_g_mean_mag, phot_bp_mean_mag, phot_rp_mean_mag, " \
                    "phot_g_mean_flux_over_error, phot_bp_mean_flux_over_error, phot_rp_mean_flux_over_error"
     query = "SELECT top {max_rows} {columns} FROM {catalog} WHERE 1=CONTAINS(POINT({ra}, {dec}),CIRCLE(ra, dec, {radius}))".format(
-        max_rows=max_row_limit, columns=columns, catalog=catalog, ra=coordinates['ra'], dec=coordinates['dec'], radius=coordinates['r'])
+        max_rows=MAX_ROW_LIMIT, columns=columns, catalog=catalog, ra=coordinates['ra'], dec=coordinates['dec'], radius=coordinates['r'])
     if (constrain['distance']['max'] and constrain['distance']['min']):
         min_parallax = 1000 / float(constrain['distance']['max'])
         max_parallax = 1000 / float(constrain['distance']['min'])
@@ -287,6 +287,8 @@ def scraper_query_gaia_esac(coordinates, constrain, is_phot):
     gaia_table = astroquery.gaia.Gaia.launch_job(query).results
     # create index column
     row_len = len(gaia_table['ra'])
+    if row_len == MAX_ROW_LIMIT:
+        raise Exception('Radius too big')
     index_col = astropy.table.column.Column(data=np.array(range(1, row_len + 1)), name='id')
     gaia_table.add_column(index_col, 0)
     # create distance column
@@ -321,13 +323,13 @@ def scraper_query_vizier(coordinates, columns, catalog_vizier):
     dec = coordinates['dec']
     r = coordinates['r']
     query_coords = coord.SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame='icrs')
-    vquery = Vizier(columns=columns, row_limit=max_row_limit)
+    vquery = Vizier(columns=columns, row_limit=MAX_ROW_LIMIT)
     query = vquery.query_region(query_coords,
                                 radius=Angle(r * u.deg),
                                 catalog=catalog_vizier,
                                 )[0]
     # print(len(query))
-    if len(query) == max_row_limit:
+    if len(query) == MAX_ROW_LIMIT:
         raise Exception('Radius too big')
     # print(query.info)
     return query
