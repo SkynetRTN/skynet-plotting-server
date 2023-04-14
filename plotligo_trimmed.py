@@ -6,6 +6,8 @@ from scipy.signal import butter, filtfilt
 from gwpy.timeseries import TimeSeries
 import matplotlib.mlab as mlab
 import matplotlib
+from scipy.special import erfinv
+
 matplotlib.use('Agg')
 
 # LIGO-specific readligo.py 
@@ -25,6 +27,66 @@ def whiten(strain, interp_psd, dt):
     white_hf = hf / np.sqrt(interp_psd(freqs)) * norm
     white_ht = np.fft.irfft(white_hf, n=Nt)
     return white_ht
+
+# Finds a resonable window for the event given a spectrogram
+# spectro - gwpy spectrogram object
+# mad_tresh - percentile to threshold the normalized medians of valid points
+# buffer sclaers - add percentage of total spec size to each axis
+def chauvenet_windowing(spectro, mad_thresh=68.0, buffer_scalers=[0.05, 0.05]):
+    # Step 1: Set mu = 0
+
+    spectro_np = np.asarray(spectro)
+    
+    # Step 2: Calculate sigma = stdev = rms
+    rms = np.sqrt(np.mean(np.square(spectro_np)))
+    sigma = rms
+    
+    # Step 3: Apply Chauvenet rejection
+    N = spectro_np.shape[0] * spectro_np.shape[1]
+    z = np.abs(spectro_np - 0) / sigma
+
+    threshold_chauvenet = np.sqrt(2) * sigma * erfinv(1 - 0.5 / N)
+    is_outlier = z > threshold_chauvenet
+    
+    # Step 4: Apply 68% median filtering
+    
+    valid_region = np.where(is_outlier, spectro_np, 0)
+    med_spec = np.median(valid_region)
+    abs_deviation = np.abs(valid_region - med_spec)
+    mad_spec = np.median(abs_deviation)
+    threshold = np.percentile(mad_spec, mad_thresh)
+    is_significant = valid_region > threshold
+    # Step 5: Define the window
+    time_range = np.where(np.any(is_significant, axis=1))[0]
+    if len(time_range) == 0:
+        # No significant time range found
+        print("No significant time range found")
+        return (0,0)
+    else:
+        time_start_indx, time_end_indx = time_range[0], time_range[-1] + 1
+
+    freq_range = np.where(np.any(is_significant, axis=0))[0]
+    if len(freq_range) == 0:
+        # No significant time range found
+        print("No significant frequency range found")
+        return (0,0)
+    else:
+        freq_start_indx, freq_end_indx = freq_range[0], freq_range[-1] + 1
+        
+        
+    dx = spectro.dx
+    x0 = spectro.x0
+    dy = 0.5 #always 0.5 but for some reason doesn't come through metadata sometimes
+    y0 = spectro.y0
+    
+    x_buffer = np.floor(spectro_np.shape[0] * buffer_scalers[0]) if spectro_np.shape[0] > len(time_range) else 0
+    y_buffer = np.floor(spectro_np.shape[1] * buffer_scalers[1]) if spectro_np.shape[1] > len(freq_range) else 0
+    time_lb = (time_start_indx - x_buffer) * dx + x0
+    time_ub = (time_end_indx + x_buffer) * dx + x0
+    freq_lb = (freq_start_indx - y_buffer) * dy + y0.value if freq_start_indx > y_buffer else y0.value
+    freq_ub = (freq_end_indx + y_buffer) * dy + y0.value if freq_end_indx < spectro_np.shape[1] - y_buffer else spectro_np.shape[1] * dy + y0.value
+    
+    return (time_lb.value, time_ub.value), (freq_lb, freq_ub)
 
 #does all the work
 def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
@@ -83,80 +145,36 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
 
     # Finds the spectrogram and plots it. Returns the figure and the spectrogram object
     if plot_spectrogram:
-        timewindow = 0.05  # hardcoded to plot 5 seconds centered on merger - can change
+        timewindow = 0.1  # hardcoded to plot 5 seconds centered on merger - can change
 
         ## Using GWPY to make graph
         strain_timeseries = TimeSeries(strain, times=time)
 
         midpoint = (gpsStart + gpsEnd)/2
         window = (gpsEnd-gpsStart)*timewindow
-
-        hq = strain_timeseries.q_transform(outseg=(midpoint-window, midpoint+window), norm=False)
+        lowerbound = midpoint-window
+        upperbound = midpoint+window
+        
+    
+        og_spectrogram = strain_timeseries.q_transform(outseg=(lowerbound, upperbound), norm=True)
+        time_bounds, freq_bounds = chauvenet_windowing(og_spectrogram, mad_thresh=68, buffer_scalers=[0.025, 0.05])
+        if not (time_bounds or freq_bounds):
+            fig = og_spectrogram.plot()
+            ax = fig.gca()
+            fig.colorbar(label="Energy")
+            ax.set(xlim=(lowerbound, upperbound))
+            ax.grid(False)
+            ax.set_yscale('log')
+            return fig, og_spectrogram
+        hq = strain_timeseries.q_transform(outseg=(time_bounds[0], time_bounds[1]), norm=True)
         fig = hq.plot()
         # vmin=0, vmax=25
         ax = fig.gca()
         fig.colorbar(label="Energy")
-        ax.set(xlim=(midpoint-window, midpoint+window))
+        ax.set(xlim=(time_bounds[0], time_bounds[1]), ylim=(freq_bounds[0], freq_bounds[1]))
+        
         ax.grid(False)
         ax.set_yscale('log')
 
-
         return fig, hq
-
-def find_merger(spec_array, THRESHOLD=5 * 10**-14):
-    row_event_count = []
-    col_event_count = []
-    # print(spec_array[0].shape)
-    col_maxval_count = np.zeros(spec_array.shape[1])
-    row_maxval_count = np.zeros(spec_array.shape[0])
-    for row in spec_array:
-        boolrow = row >= THRESHOLD
-        row_event_count.append(np.count_nonzero(boolrow))
-
-        argmax_row = np.argmax(row)
-        col_maxval_count[argmax_row] += 1
-    for col in np.transpose(spec_array):
-        boolcol = col >= THRESHOLD
-        col_event_count.append(np.count_nonzero(boolcol))
-
-        argmax_col = np.argmax(col)
-        row_maxval_count[argmax_col] += 1
-
-    return col_maxval_count, row_maxval_count, col_event_count, row_event_count
-
-
-#150914
-file_name = "L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5"
-#190814
-# file_name = "L-L1_GWOSC_16KHZ_R1-1249852241-32.hdf5"
-
-figor, hq = get_data_from_file(file_name, plot_spectrogram=1)
-print(hq)
-
-col_maxval_count, row_maxval_count, col_event_count, row_event_count = find_merger(hq)
-
-figor.savefig("specplot_test.png")
-fig = matplotlib.pyplot.figure(5)
-ax = fig.add_subplot()
-ax.plot(hq.yindex, col_maxval_count)
-ax.set(xscale="log")
-fig.savefig("ydim_maxvalcount.png")
-
-fig = matplotlib.pyplot.figure(6)
-ax = fig.add_subplot()
-ax.plot(hq.xindex, row_maxval_count)
-fig.savefig("xdim_maxvalcount.png")
-
-fig = matplotlib.pyplot.figure(7)
-ax = fig.add_subplot()
-ax.plot(hq.xindex, row_event_count)
-fig.savefig("xdim_eventcount.png")
-
-fig = matplotlib.pyplot.figure(8)
-ax = fig.add_subplot()
-ax.plot(hq.yindex, col_event_count)
-ax.set(xscale="log")
-fig.savefig("ydim_eventcount.png")
-
-
 
