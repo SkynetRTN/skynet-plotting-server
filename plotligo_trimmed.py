@@ -2,7 +2,7 @@
 import numpy as np
 import base64
 from scipy.interpolate import interp1d
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, filtfilt, tukey
 from gwpy.timeseries import TimeSeries
 import matplotlib.mlab as mlab
 import matplotlib
@@ -127,11 +127,11 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
     if whiten_data:
         # number of sample for the fast fourier transform:
         NFFT = 4*fs
-        Pxx, freqs = mlab.psd(strain, Fs = fs, NFFT = NFFT)
+        psd_window = tukey(NFFT, alpha=1./4)
+        Pxx, freqs = mlab.psd(strain, Fs = fs, NFFT = NFFT, window=psd_window)
     
         # We will use interpolations of the ASDs computed above for whitening:
         psd = interp1d(freqs, Pxx)
-
         # now whiten the data from H1 and L1, and the template (use H1 PSD):
         strain_whiten = whiten(strain,psd,dt)
         
@@ -145,7 +145,7 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
 
     # Finds the spectrogram and plots it. Returns the figure and the spectrogram object
     if plot_spectrogram:
-        timewindow = 0.1  # hardcoded to plot 5 seconds centered on merger - can change
+        timewindow = 0.05  # hardcoded to plot 5 seconds centered on merger - can change
 
         ## Using GWPY to make graph
         strain_timeseries = TimeSeries(strain, times=time)
@@ -177,4 +177,3 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         ax.set_yscale('log')
 
         return fig, hq
-
