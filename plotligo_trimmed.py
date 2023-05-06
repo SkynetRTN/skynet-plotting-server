@@ -2,10 +2,12 @@
 import numpy as np
 import base64
 from scipy.interpolate import interp1d
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, filtfilt, tukey
 from gwpy.timeseries import TimeSeries
 import matplotlib.mlab as mlab
 import matplotlib
+from scipy.special import erfinv
+
 matplotlib.use('Agg')
 
 # LIGO-specific readligo.py 
@@ -25,6 +27,66 @@ def whiten(strain, interp_psd, dt):
     white_hf = hf / np.sqrt(interp_psd(freqs)) * norm
     white_ht = np.fft.irfft(white_hf, n=Nt)
     return white_ht
+
+# Finds a resonable window for the event given a spectrogram
+# spectro - gwpy spectrogram object
+# mad_tresh - percentile to threshold the normalized medians of valid points
+# buffer sclaers - add percentage of total spec size to each axis
+def chauvenet_windowing(spectro, mad_thresh=68.0, buffer_scalers=[0.05, 0.05]):
+    # Step 1: Set mu = 0
+
+    spectro_np = np.asarray(spectro)
+    
+    # Step 2: Calculate sigma = stdev = rms
+    rms = np.sqrt(np.mean(np.square(spectro_np)))
+    sigma = rms
+    
+    # Step 3: Apply Chauvenet rejection
+    N = spectro_np.shape[0] * spectro_np.shape[1]
+    z = np.abs(spectro_np - 0) / sigma
+
+    threshold_chauvenet = np.sqrt(2) * sigma * erfinv(1 - 0.5 / N)
+    is_outlier = z > threshold_chauvenet
+    
+    # Step 4: Apply 68% median filtering
+    
+    valid_region = np.where(is_outlier, spectro_np, 0)
+    med_spec = np.median(valid_region)
+    abs_deviation = np.abs(valid_region - med_spec)
+    mad_spec = np.median(abs_deviation)
+    threshold = np.percentile(mad_spec, mad_thresh)
+    is_significant = valid_region > threshold
+    # Step 5: Define the window
+    time_range = np.where(np.any(is_significant, axis=1))[0]
+    if len(time_range) == 0:
+        # No significant time range found
+        print("No significant time range found")
+        return (0,0)
+    else:
+        time_start_indx, time_end_indx = time_range[0], time_range[-1] + 1
+
+    freq_range = np.where(np.any(is_significant, axis=0))[0]
+    if len(freq_range) == 0:
+        # No significant time range found
+        print("No significant frequency range found")
+        return (0,0)
+    else:
+        freq_start_indx, freq_end_indx = freq_range[0], freq_range[-1] + 1
+        
+        
+    dx = spectro.dx
+    x0 = spectro.x0
+    dy = 0.5 #always 0.5 but for some reason doesn't come through metadata sometimes
+    y0 = spectro.y0
+    
+    x_buffer = np.floor(spectro_np.shape[0] * buffer_scalers[0]) if spectro_np.shape[0] > len(time_range) else 0
+    y_buffer = np.floor(spectro_np.shape[1] * buffer_scalers[1]) if spectro_np.shape[1] > len(freq_range) else 0
+    time_lb = (time_start_indx - x_buffer) * dx + x0
+    time_ub = (time_end_indx + x_buffer) * dx + x0
+    freq_lb = (freq_start_indx - y_buffer) * dy + y0.value if freq_start_indx > y_buffer else y0.value
+    freq_ub = (freq_end_indx + y_buffer) * dy + y0.value if freq_end_indx < spectro_np.shape[1] - y_buffer else spectro_np.shape[1] * dy + y0.value
+    
+    return (time_lb.value, time_ub.value), (freq_lb, freq_ub)
 
 #does all the work
 def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
@@ -61,22 +123,15 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
     dt = time[1] - time[0]
     
 
-    #----------------------------------------------------------------
-    # Plot the Amplitude Spectral Density (ASD)
-    #
-    # The ASDs are the square root of the power spectral densities (PSDs), which are averages of the square of the fast fourier transforms (FFTs) of the data.
-    #
-    # They are an estimate of the "strain-equivalent noise" of the detectors versus frequency, which limit the ability of the detectors to identify GW signals.
-    
 
     if whiten_data:
         # number of sample for the fast fourier transform:
         NFFT = 4*fs
-        Pxx, freqs = mlab.psd(strain, Fs = fs, NFFT = NFFT)
+        psd_window = tukey(NFFT, alpha=1./4)
+        Pxx, freqs = mlab.psd(strain, Fs = fs, NFFT = NFFT, window=psd_window)
     
         # We will use interpolations of the ASDs computed above for whitening:
         psd = interp1d(freqs, Pxx)
-
         # now whiten the data from H1 and L1, and the template (use H1 PSD):
         strain_whiten = whiten(strain,psd,dt)
         
@@ -88,42 +143,37 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         strain_whitenbp = filtfilt(bb, ab, strain_whiten) / normalization
         return np.concatenate((time.reshape(-1,1), strain_whitenbp.reshape(-1,1)), axis=1)
 
-    # create_spectrogram = 1
+    # Finds the spectrogram and plots it. Returns the figure and the spectrogram object
     if plot_spectrogram:
-        deltat = 0.3  # hardcoded to plot 5 seconds centered on merger - can change
+        timewindow = 0.05  # hardcoded to plot 5 seconds centered on merger - can change
 
         ## Using GWPY to make graph
         strain_timeseries = TimeSeries(strain, times=time)
 
         midpoint = (gpsStart + gpsEnd)/2
-        window = (gpsEnd-gpsStart)*0.05
-
-        hq = strain_timeseries.q_transform(outseg=(midpoint-window, midpoint+window), norm=False)
+        window = (gpsEnd-gpsStart)*timewindow
+        lowerbound = midpoint-window
+        upperbound = midpoint+window
+        
+    
+        og_spectrogram = strain_timeseries.q_transform(outseg=(lowerbound, upperbound), norm=True)
+        time_bounds, freq_bounds = chauvenet_windowing(og_spectrogram, mad_thresh=68, buffer_scalers=[0.025, 0.05])
+        if not (time_bounds or freq_bounds):
+            fig = og_spectrogram.plot()
+            ax = fig.gca()
+            fig.colorbar(label="Energy")
+            ax.set(xlim=(lowerbound, upperbound))
+            ax.grid(False)
+            ax.set_yscale('log')
+            return fig, og_spectrogram
+        hq = strain_timeseries.q_transform(outseg=(time_bounds[0], time_bounds[1]), norm=True)
         fig = hq.plot()
         # vmin=0, vmax=25
         ax = fig.gca()
         fig.colorbar(label="Energy")
-        ax.set(xlim=(midpoint-window, midpoint+window))
+        ax.set(xlim=(time_bounds[0], time_bounds[1]), ylim=(freq_bounds[0], freq_bounds[1]))
+        
         ax.grid(False)
         ax.set_yscale('log')
 
-
         return fig, hq
-
-
-# figor, hq = get_data_from_file("L-L1_GWOSC_16KHZ_R1-1126259447-32.hdf5", plot_spectrogram=1)
-# print(hq)
-# # print(hq.name)
-# # print(hq.x0)
-# # print(hq.dx)
-# # print(hq.dy)
-# # print(hq.y0)
-# # print(hq.yindex)
-# # print(hq.xindex)
-# figor.savefig("specplot_test.png")
-# extracted_model = extract_model_from_spectrogram(1.175, 62.797, 1126259462.4, hq)
-# fig = matplotlib.pyplot.figure(60)
-# fig.gca().plot(extracted_model[:,0], extracted_model[:,1])
-# fig.savefig("extraction_test.png")
-
-
