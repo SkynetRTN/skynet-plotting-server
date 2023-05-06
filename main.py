@@ -94,7 +94,7 @@ def get_sepctrogram():
 
         return json.dumps({'image': str(encoded_image), 'bounds': str(xbounds)+' '+str(ybounds),
                            'spec_array': np.asarray(spec_array).tolist(), 'x0': str(spec_array.x0),
-                           'dx': str(spec_array.dx), 'y0' : str(spec_array.y0), 'dy': str(spec_array.dy)})
+                           'dx': str(spec_array.dx), 'y0' : str(spec_array.y0), 'dy': str(0.5)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:
