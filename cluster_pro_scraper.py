@@ -19,7 +19,7 @@ from astroquery.vizier import Vizier
 from gaia_util import gaia_match
 
 GAIA_MAX_ROW_LIMIT = 50000
-STD_MAX_ROW_LIMIT = 1000000
+STD_MAX_ROW_LIMIT = 50000
 
 
 def scraper_query_object(query: str):
