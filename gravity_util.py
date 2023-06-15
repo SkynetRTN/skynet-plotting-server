@@ -10,7 +10,16 @@ def find_strain_model_data(mass_ratio, total_mass):
                 f"gravdata-{total_mass:.3f}-{mass_ratio:.3f}.dat"
             ),
             skip_header=1)
-        return data[:,:2].tolist()
+        step = data[1, 0].tolist() - data[0,0].tolist()
+        end = data[-1, 0].tolist()
+        start = data[0, 0].tolist()
+        data = data[:, :2].tolist()
+        # we want to add some elements to extend the dataset and make it more stable, I'm not going to start 
+        # very accurate, but lets see what we can do
+        for i in range(100000):
+            data.insert(-1, [end + (step * i), 0])
+            data. insert(0, [start - (step * i), 0])
+        return data
 
     except FileNotFoundError:
         raise ValueError({"error": "Requested strain model not found"})
