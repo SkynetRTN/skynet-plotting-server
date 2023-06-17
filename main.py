@@ -71,7 +71,7 @@ def upload_process_gravdata():
         midpoint = np.round(data.shape[0]/2.0)
         buffer = np.ceil(data.shape[0] * 0.05)
         center_of_data = data[int(midpoint-buffer): int(midpoint+buffer)] ## dont forget to change this back below center_of_data.data.tolist
-        return json.dumps({'data': data.tolist()})
+        return json.dumps({'data': center_of_data.data.tolist()})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:
