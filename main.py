@@ -170,7 +170,7 @@ def get_vizier_photometry():
 
 
 def main():
-    api.run(port=5001)
+    api.run()
 
 
 if __name__ == "__main__":
