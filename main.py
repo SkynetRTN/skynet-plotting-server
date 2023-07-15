@@ -13,9 +13,9 @@ from werkzeug.datastructures import CombinedMultiDict, MultiDict
 
 from cluster_isochrone import get_iSkip, find_data_in_files
 from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
-from gravity_util import find_strain_model_data, find_frequency_model_data
+from gravity_util import find_strain_model_data, find_frequency_model_data, find_bandpass_range
 from gaia_util import gaia_match
-from plotligo_trimmed import get_data_from_file
+from plotligo_trimmed import get_data_from_file, bandpassData
 from bestFit import fitToData
 
 
@@ -47,7 +47,28 @@ def get_data():
         return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+    
 
+# Make a new api route that handles strain data updates
+
+@api.route("/gravdata", methods=["POST"])
+def get_gravdata():
+    try:
+        data = request.get_json()
+        mass_ratio = float(data['ratioMass'])
+        total_mass = float(data['totalMass'])
+        fband = find_bandpass_range(mass_ratio, total_mass)  
+        strain_whiten = data['whitenedStrain']
+        time = data['time']
+        print(strain_whiten)
+        data = bandpassData(fband[1], fband[0], strain_whiten, time)
+        midpoint = np.round(data.shape[0] / 2.0)
+        buffer = np.ceil(data.shape[0] * 0.05)
+        center_of_data = data[int(midpoint - buffer) : int(midpoint + buffer)]
+        return json.dumps({'data': center_of_data.data.tolist()})
+    except Exception as e:
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+    
 
 @api.route("/gravity", methods=["GET"])
 def get_gravity():
@@ -67,11 +88,8 @@ def upload_process_gravdata():
     try:
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        data = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
-        midpoint = np.round(data.shape[0]/2.0)
-        buffer = np.ceil(data.shape[0] * 0.05)
-        center_of_data = data[int(midpoint-buffer): int(midpoint+buffer)] ## dont forget to change this back below center_of_data.data.tolist
-        return json.dumps({'data': center_of_data.data.tolist()})
+        strain_whiten, time = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
+        return json.dumps({'whitenedStrain': strain_whiten.tolist(), 'time': time.tolist()})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:

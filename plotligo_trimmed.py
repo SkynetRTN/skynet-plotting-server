@@ -1,6 +1,7 @@
 # Standard python numerical analysis imports:
 import numpy as np
 import base64
+import os
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt, tukey
 from gwpy.timeseries import TimeSeries
@@ -14,6 +15,21 @@ matplotlib.use('Agg')
 import readligo as rl
 
 # done importing now
+
+# Separate bandpassing function for use on whitened data
+
+def bandpassData(freqHigh, freqLow, strain_whiten, time):
+    # We need to suppress the high frequency noise (no signal!) with some bandpassing:
+    fband = [freqLow, freqHigh]
+    fs = 16384
+    bb, ab = butter(4, [fband[0]*2./fs, fband[1]*2./fs], btype='band')
+    normalization = np.sqrt((fband[1]-fband[0])/(fs/2))
+        
+    # final product here
+    strain_whitenbp = filtfilt(bb, ab, strain_whiten) / normalization
+    
+    return np.concatenate((time.reshape(-1,1), strain_whitenbp.reshape(-1,1)), axis=1)
+
 
 # function to whiten data
 def whiten(strain, interp_psd, dt):
@@ -89,10 +105,10 @@ def chauvenet_windowing(spectro, mad_thresh=68.0, buffer_scalers=[0.05, 0.05]):
     return (time_lb.value, time_ub.value), (freq_lb, freq_ub)
 
 #does all the work
+## Fundamental change - - only outputs whitened unbandpassed data when uploading files
 def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
-
     # frequency band for bandpassing signal
-    fband = [43.0, 400.0]
+    # fband = [freqLow, freqHigh]
     # fband = [35.0, 350.0]
     fs = 16384
  #   fs = 4096
@@ -135,13 +151,15 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         # now whiten the data from H1 and L1, and the template (use H1 PSD):
         strain_whiten = whiten(strain,psd,dt)
         
-        # We need to suppress the high frequency noise (no signal!) with some bandpassing:
-        bb, ab = butter(4, [fband[0]*2./fs, fband[1]*2./fs], btype='band')
-        normalization = np.sqrt((fband[1]-fband[0])/(fs/2))
+        # # We need to suppress the high frequency noise (no signal!) with some bandpassing:
+        # bb, ab = butter(4, [fband[0]*2./fs, fband[1]*2./fs], btype='band')
+        # normalization = np.sqrt((fband[1]-fband[0])/(fs/2))
         
-        # final product here
-        strain_whitenbp = filtfilt(bb, ab, strain_whiten) / normalization
-        return np.concatenate((time.reshape(-1,1), strain_whitenbp.reshape(-1,1)), axis=1)
+        # # final product here
+        # strain_whitenbp = filtfilt(bb, ab, strain_whiten) / normalization
+
+        return strain_whiten, time
+        # return np.concatenate((time.reshape(-1,1), strain_whitenbp.reshape(-1,1)), axis=1)
 
     # Finds the spectrogram and plots it. Returns the figure and the spectrogram object
     if plot_spectrogram:
