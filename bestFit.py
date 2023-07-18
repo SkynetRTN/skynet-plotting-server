@@ -1,16 +1,13 @@
 
+from typing import List
+
+
 try:
     from scipy.optimize import curve_fit
-    import matplotlib.pyplot as plt
-    from time import time
     import numpy as np
 except ImportError as e:
     print(e)
 
-"""
-    Additional models can easily be added
-    making this a generic tool.
-"""
 
 class InitialGuess:
     def __init__(self, m, a, b):
@@ -20,7 +17,7 @@ class InitialGuess:
 
 
 class Model:
-    def __init__(self, ref_fltr, fltrs, x):
+    def __init__(self, ref_filter, filters, x, m):
         self._FILTER_ZERO_POINT = {
             'U' : 1.790,
             'B' : 4.063,
@@ -54,40 +51,45 @@ class Model:
             'Ks': 2.15,
         }
 
-        self.data_fltrs = fltrs
-        self.ref_zero_point = self._FILTER_ZERO_POINT[ref_fltr]
-        self.ref_wavelength = self._FILTER_WAVELENGTH[ref_fltr]
+        self.data_filters = filters
+        self.ref_zero_point = self._FILTER_ZERO_POINT[ref_filter]
+        self.ref_wavelength = self._FILTER_WAVELENGTH[ref_filter]
         self.referenceX = x
+        self.referenceMag = m
 
-    def zero_point_list(self, d):
-        return [self._FILTER_ZERO_POINT[d[key]] for key in d.keys()]
+    def zero_point_list(self, filters: List[str]):
+        return [self._FILTER_ZERO_POINT[f] for f in filters]
+        # return [self._FILTER_ZERO_POINT[d[key]] for key in d.keys()]
 
-    def wavelength_list(self, d):
-        return [self._FILTER_WAVELENGTH[d[key]] for key in d.keys()]       
+    def wavelength_list(self, filters: List[str]):
+        return [self._FILTER_WAVELENGTH[f] for f in filters]
+        # return [self._FILTER_WAVELENGTH[d[key]] for key in d.keys()]
 
-    def get_model(self, x, m, a, b):
-        zero_point = np.array(self.zero_point_list(self.data_fltrs))
-        wavelength = np.array(self.wavelength_list(self.data_fltrs))
+    def get_model(self, x, a, b):
+        zero_point = np.array(self.zero_point_list(self.data_filters))
+        wavelength = np.array(self.wavelength_list(self.data_filters))
 
         eq_zp = np.log10(self.ref_zero_point / zero_point)
         eq_time = a * np.log10(x / self.referenceX)
         eq_freq = b * np.log10(wavelength / self.ref_wavelength)
+        # extinction term
 
-        return m - 2.5 * (eq_zp + eq_time + eq_freq)
+        return self.referenceMag - 2.5 * (eq_zp + eq_time + eq_freq)
 
 
 def getBestFit(model, x, y, guess):
     return curve_fit(model, x, y, \
-        p0=[guess.m, guess.a, guess.b], \
-        bounds=([-30, -3, -2], [30, 1, 1]))
+        p0=[guess.a, guess.b], \
+        bounds=([-3, -2], [1, 1]))
 
 
-def fitToData(xdata, ydata, filters, params):
+def fitToData(xdata: List[float], ydata: List[float], filters, params):
 
     try:
         guess = InitialGuess(params['m'], params['a'], params['b'])
-        model = Model(params['filter'], filters, params['t'])
-    except:
+        model = Model(params['filter'], filters, params['t'], params['m'])
+    except Exception as e:
+        print(e)
         return []
 
     # optimal, covariance
