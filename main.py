@@ -90,7 +90,7 @@ def get_gravdata():
             timeData = np.array(timeData)
             data = bandpassData(fband[1], fband[0], strain_whiten, timeData)
             midpoint = np.round(data.shape[0] / 2.0)
-            buffer = np.ceil(data.shape[0] * 0.05)
+            buffer = np.ceil(data.shape[0] * 0.25)
             center_of_data = data[int(midpoint - buffer) : int(midpoint + buffer)]
             return jsonify({'data': center_of_data.tolist()})
         else:
@@ -115,12 +115,28 @@ def get_gravity():
 def upload_process_gravdata():
     tempdir = mkdtemp()
     try:
+        # Generate a unique identifier for the user's session or data session
+        session_id = str(uuid.uuid4())
+        # print('ID : ', session_id)
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
         strain_whiten, timeData = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
-
-        # Generate a unique identifier for the user's session or data session
-        session_id = str(uuid.uuid4())
+        timeZero = np.ceil(timeData[0]) + 16
+        
+        ## The important data seems to always be within the 2 secends preceeding and proceeding the center of the data
+        ## rip and tear
+        lowInd = 0
+        highInd = 0
+        for i in range(len(timeData)):
+            timeData[i] = timeData[i] - timeZero;
+            if -2.1 < timeData[i] < -2.0:
+                lowInd = i
+            if 1.9 < timeData[i] < 2.0:
+                highInd = i   
+        print('Before Length: ', len(strain_whiten))
+        strain_whiten = strain_whiten[lowInd:highInd]  
+        timeData = timeData[lowInd:highInd]  
+        print('After Length: ', len(strain_whiten))    
 
         # Store the whitened data, time, and last access timestamp in the dictionary using the session ID as the key
         whitened_data[session_id] = {
@@ -144,11 +160,10 @@ def upload_process_gravdata():
             timeData = np.array(timeData)
             data = bandpassData(fband[1], fband[0], strain_whiten, timeData)
             midpoint = np.round(data.shape[0] / 2.0)
-            buffer = np.ceil(data.shape[0] * 0.05)
+            buffer = np.ceil(data.shape[0] * 0.25)
             center_of_data = data[int(midpoint - buffer) : int(midpoint + buffer)]
-
         # Set the session ID as a cookie in the response
-        response = jsonify({'dataSet': center_of_data.tolist(), 'sessionID': session_id})
+        response = jsonify({'dataSet': center_of_data.tolist(), 'sessionID': session_id, 'timeZero': timeZero})
         response.set_cookie('session_id', session_id)
 
         return response
