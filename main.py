@@ -105,7 +105,10 @@ def get_gravity():
     try:
         mass_ratio = float(request.args['ratioMass'])
         total_mass = float(request.args['totalMass'])
-        return json.dumps({'strain_model': find_strain_model_data(mass_ratio, total_mass), 'freq_model': find_frequency_model_data(mass_ratio, total_mass)})
+        data = find_strain_model_data(mass_ratio, total_mass)
+        for i in range(len(data)):
+            data[i][1] = data[i][1] * 10**18
+        return json.dumps({'strain_model': data, 'freq_model': find_frequency_model_data(mass_ratio, total_mass)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
@@ -162,6 +165,8 @@ def upload_process_gravdata():
             midpoint = np.round(data.shape[0] / 2.0)
             buffer = np.ceil(data.shape[0] * 0.25)
             center_of_data = data[int(midpoint - buffer) : int(midpoint + buffer)]
+            for i in range(len(center_of_data)):
+                center_of_data[i][1] = center_of_data[i][1] * 10**18
         # Set the session ID as a cookie in the response
         response = jsonify({'dataSet': center_of_data.tolist(), 'sessionID': session_id, 'timeZero': timeZero})
         response.set_cookie('session_id', session_id)

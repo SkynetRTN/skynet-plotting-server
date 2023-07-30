@@ -39,8 +39,9 @@ def whiten(strain, interp_psd, dt):
     # whitening: transform to freq domain, divide by asd, then transform back, 
     # taking care to get normalization right.
     hf = np.fft.rfft(strain)
+    pronorm = np.sqrt(interp_psd(freqs)).max()
     norm = 1. / np.sqrt(1. / (dt * 2))
-    white_hf = hf / np.sqrt(interp_psd(freqs)) * norm
+    white_hf = hf * pronorm / np.sqrt(interp_psd(freqs)) * norm
     white_ht = np.fft.irfft(white_hf, n=Nt)
     return white_ht
 
