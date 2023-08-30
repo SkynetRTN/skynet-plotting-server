@@ -148,7 +148,7 @@ def get_gravity():
         total_mass = float(request.args['totalMass'])
         data = find_strain_model_data(mass_ratio, total_mass)
         for i in range(len(data)):
-            data[i][1] = data[i][1] * 10**22.4
+            data[i][1] = data[i][1] * 10**22.705
         return json.dumps({'strain_model': data, 'freq_model': find_frequency_model_data(mass_ratio, total_mass)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
