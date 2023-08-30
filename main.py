@@ -288,9 +288,7 @@ def cleanup_whitened_data():
 
 
 def main():
-    # Run the cleanup task every hour (3600 seconds)
-    api.before_first_request(cleanup_whitened_data)
-    api.run(port=5001)
+    api.run()
 
 if __name__ == "__main__":
     main()
