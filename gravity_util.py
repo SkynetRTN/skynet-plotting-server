@@ -24,6 +24,23 @@ def find_strain_model_data(mass_ratio, total_mass):
     except FileNotFoundError:
         raise ValueError({"error": "Requested strain model not found"})
 
+# pull the bandpass frequencies from the files
+
+def find_bandpass_range(mass_ratio, total_mass):
+    try:
+        data = np.genfromtxt(
+            os.path.join(
+                os.path.dirname(__file__),
+                "gravity-model-data", "strain-model", f"bf_{total_mass:0.3f}",
+                f"bandpassData-{total_mass:.3f}-{mass_ratio:.3f}.dat"
+            ),
+            skip_header=1)
+        data = data.tolist()
+        return data
+
+    except FileNotFoundError:
+        raise ValueError({"error": "Requested bandpass data not found"})
+
 
 def find_frequency_model_data(mass_ratio, total_mass):
     try:

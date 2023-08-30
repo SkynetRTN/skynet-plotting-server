@@ -7,23 +7,25 @@ from os import error
 from tempfile import mkdtemp
 from shutil import rmtree
 import numpy as np
-from flask import Flask, json, request
+from flask import Flask, json, request, jsonify
 from flask_cors import CORS
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 
 from cluster_isochrone import get_iSkip, find_data_in_files
 from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
-from gravity_util import find_strain_model_data, find_frequency_model_data
+from gravity_util import find_strain_model_data, find_frequency_model_data, find_bandpass_range
 from gaia_util import gaia_match
-from plotligo_trimmed import get_data_from_file
+from plotligo_trimmed import get_data_from_file, bandpassData
 from bestFit import fitToData
-
+import uuid
+import time
 
 api = Flask(__name__)
-
-CORS(api)
+CORS(api, origins='http://localhost:3000')
 api.debug = True
 
+# Dictionary to store whitened data, time, and last access timestamp
+whitened_data = {}
 
 # test
 @api.before_request
@@ -34,7 +36,6 @@ def resolve_request_body() -> None:
         ds.append(MultiDict(body.items()))
 
     request.args = CombinedMultiDict(ds)
-
 
 @api.route("/isochrone", methods=["GET"])
 def get_data():
@@ -47,7 +48,56 @@ def get_data():
         return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+    
 
+# Make a new api route that handles strain data updates
+####################################################
+####################################################
+####################################################
+## This needs to be fixed to accomodate server side storage
+
+@api.route("/gravitydata", methods=["OPTIONS"])
+def handle_options():
+    # Set the CORS headers
+    headers = {
+        "Access-Control-Allow-Origin": "*",  # Replace "*" with the appropriate origin
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+    }
+    
+    return ("", 200, headers)
+
+@api.route("/gravitydata", methods=["POST"])
+def get_gravdata():
+    try:
+        data = request.get_json()
+        mass_ratio = float(request.args['ratioMass'])
+        total_mass = float(request.args['totalMass'])
+        fband = find_bandpass_range(mass_ratio, total_mass)
+        session_id = request.args['sessionID']
+
+        if session_id in whitened_data:
+            data = whitened_data[session_id]
+            strain_whiten = data['whitenedStrain']
+            timeData = data['time']
+            last_access_time = data['last_access_time']
+
+            # Update the last access timestamp
+            whitened_data[session_id]['last_access_time'] = time.time()
+
+            # Process the whitened data and time as needed
+            strain_whiten = np.array(strain_whiten)
+            timeData = np.array(timeData)
+            data = bandpassData(fband[1], fband[0], strain_whiten, timeData)
+            midpoint = np.round(data.shape[0] / 2.0)
+            buffer = np.ceil(data.shape[0] * 0.25)
+            center_of_data = data[int(midpoint - buffer) : int(midpoint + buffer)]
+            return jsonify({'data': center_of_data.tolist()})
+        else:
+            return jsonify({'error': 'Session ID not found'})
+    except Exception as e:
+        return jsonify({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+    
 
 @api.route("/gravity", methods=["GET"])
 def get_gravity():
@@ -55,27 +105,78 @@ def get_gravity():
     try:
         mass_ratio = float(request.args['ratioMass'])
         total_mass = float(request.args['totalMass'])
-        return json.dumps({'strain_model': find_strain_model_data(mass_ratio, total_mass), 'freq_model': find_frequency_model_data(mass_ratio, total_mass)})
+        data = find_strain_model_data(mass_ratio, total_mass)
+        for i in range(len(data)):
+            data[i][1] = data[i][1] * 10**18
+        return json.dumps({'strain_model': data, 'freq_model': find_frequency_model_data(mass_ratio, total_mass)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
+## Changes to gravfile so that whitened data is stored on the server
 @api.route("/gravfile", methods=["POST"])
 def upload_process_gravdata():
-    # upload_folder = 'temp-grav-data'
     tempdir = mkdtemp()
     try:
+        # Generate a unique identifier for the user's session or data session
+        session_id = str(uuid.uuid4())
+        # print('ID : ', session_id)
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        data = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
-        midpoint = np.round(data.shape[0]/2.0)
-        buffer = np.ceil(data.shape[0] * 0.05)
-        center_of_data = data[int(midpoint-buffer): int(midpoint+buffer)] ## dont forget to change this back below center_of_data.data.tolist
-        return json.dumps({'data': center_of_data.data.tolist()})
+        strain_whiten, timeData = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
+        timeZero = np.ceil(timeData[0]) + 16
+        
+        ## The important data seems to always be within the 2 secends preceeding and proceeding the center of the data
+        ## rip and tear
+        lowInd = 0
+        highInd = 0
+        for i in range(len(timeData)):
+            timeData[i] = timeData[i] - timeZero;
+            if -2.1 < timeData[i] < -2.0:
+                lowInd = i
+            if 1.9 < timeData[i] < 2.0:
+                highInd = i   
+        print('Before Length: ', len(strain_whiten))
+        strain_whiten = strain_whiten[lowInd:highInd]  
+        timeData = timeData[lowInd:highInd]  
+        print('After Length: ', len(strain_whiten))    
+
+        # Store the whitened data, time, and last access timestamp in the dictionary using the session ID as the key
+        whitened_data[session_id] = {
+            'whitenedStrain': strain_whiten.tolist(),
+            'time': timeData.tolist(),
+            'last_access_time': time.time()
+        }
+
+        fband = [35, 400]
+        if session_id in whitened_data:
+            data = whitened_data[session_id]
+            strain_whiten = data['whitenedStrain']
+            timeData = data['time']
+            last_access_time = data['last_access_time']
+
+            # Update the last access timestamp
+            whitened_data[session_id]['last_access_time'] = time.time()
+
+            # Process the whitened data and time as needed
+            strain_whiten = np.array(strain_whiten)
+            timeData = np.array(timeData)
+            data = bandpassData(fband[1], fband[0], strain_whiten, timeData)
+            midpoint = np.round(data.shape[0] / 2.0)
+            buffer = np.ceil(data.shape[0] * 0.25)
+            center_of_data = data[int(midpoint - buffer) : int(midpoint + buffer)]
+            for i in range(len(center_of_data)):
+                center_of_data[i][1] = center_of_data[i][1] * 10**18
+        # Set the session ID as a cookie in the response
+        response = jsonify({'dataSet': center_of_data.tolist(), 'sessionID': session_id, 'timeZero': timeZero})
+        response.set_cookie('session_id', session_id)
+
+        return response
     except Exception as e:
-        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+        return jsonify({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:
         rmtree(tempdir, ignore_errors=True)
+
 
 
 @api.route("/gravprofile", methods=["POST"])
@@ -169,9 +270,25 @@ def get_vizier_photometry():
         return json.dumps({'failure': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
+# Periodic cleanup task to remove expired or unused entries
+def cleanup_whitened_data():
+    expiration_time = 3600 * 3  # Time in seconds after which an entry is considered expired
+
+    current_time = time.time()
+    expired_entries = []
+
+    for session_id, data in whitened_data.items():
+        last_access_time = data['last_access_time']
+        if current_time - last_access_time > expiration_time:
+            expired_entries.append(session_id)
+
+    # Remove the expired entries from the whitened_data dictionary
+    for session_id in expired_entries:
+        del whitened_data[session_id]
+
+
 def main():
     api.run()
-
 
 if __name__ == "__main__":
     main()
