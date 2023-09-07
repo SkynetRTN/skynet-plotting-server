@@ -3,7 +3,8 @@ import numpy as np
 import base64
 import os
 from scipy.interpolate import interp1d
-from scipy.signal import butter, filtfilt, tukey
+from scipy.signal import butter, filtfilt
+from scipy.signal.windows import tukey
 from gwpy.timeseries import TimeSeries
 import matplotlib.mlab as mlab
 import matplotlib
