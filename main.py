@@ -155,7 +155,7 @@ def get_gravity():
         print('Total mass values: ', total_mass, total_massStrain)
         data = find_strain_model_data(mass_ratioStrain, total_massStrain)
         for i in range(len(data)):
-            data[i][1] = data[i][1] * 10 ** 22.905
+            data[i][1] = data[i][1] * 10 ** 22.805
             if i > 0.65 * len(data):
                 data[i][1] = 0
 
