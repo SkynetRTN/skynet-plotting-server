@@ -20,7 +20,8 @@ from werkzeug.datastructures import CombinedMultiDict, MultiDict
 
 from cluster_isochrone import get_iSkip, find_data_in_files
 from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
-from gravity_util import find_strain_model_data, find_frequency_model_data, find_bandpass_range, find_normalization, find_raw_fmodel
+from gravity_util import find_strain_model_data, find_frequency_model_data, find_bandpass_range, find_normalization, \
+    find_raw_fmodel
 from gaia_util import gaia_match
 from plotligo_trimmed import get_data_from_file, bandpassData
 from bestFit import fitToData
@@ -34,6 +35,7 @@ api.debug = True
 # Dictionary to store whitened data, time, and last access timestamp, and raw data (maybe)
 whitened_data = {}
 
+
 # test
 @api.before_request
 def resolve_request_body() -> None:
@@ -43,6 +45,7 @@ def resolve_request_body() -> None:
         ds.append(MultiDict(body.items()))
 
     request.args = CombinedMultiDict(ds)
+
 
 @api.route("/isochrone", methods=["GET"])
 def get_data():
@@ -55,7 +58,7 @@ def get_data():
         return json.dumps({'data': find_data_in_files(age, metallicity, filters), 'iSkip': iSkip})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
-    
+
 
 # Make a new api route that handles strain data updates
 ####################################################
@@ -71,8 +74,9 @@ def handle_options():
         "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type"
     }
-    
+
     return ("", 200, headers)
+
 
 @api.route("/gravitydata", methods=["POST"])
 def get_gravdata():
@@ -94,15 +98,15 @@ def get_gravdata():
             psd = conditioned.psd(4)
             psd = interpolate(psd, conditioned.delta_f)
             psd = inverse_spectrum_truncation(psd, int(4 * conditioned.sample_rate),
-                                  low_frequency_cutoff=fband[0])
+                                              low_frequency_cutoff=fband[0])
             ## Now that we have the psd, rawtimeseries, and a model to compare them to
             ## we can use the pycbc filter matching and find an approrpiate SNR for all of these!!
-            hp = TimeSeries(hp.real, delta_t=1/16384)
+            hp = TimeSeries(hp.real, delta_t=1 / 16384)
             hp = resample_to_delta_t(hp, 1.0 / 2048)
             hp.resize(len(conditioned))
             template = hp.cyclic_time_shift(hp.start_time)
-            snr = matched_filter(template, 
-                                 conditioned, 
+            snr = matched_filter(template,
+                                 conditioned,
                                  psd=psd,
                                  low_frequency_cutoff=20)
             ## may not need as a timeseries -- just find max SNR I guess
@@ -116,12 +120,12 @@ def get_gravdata():
             ## there is a VERY strong chance that we should just be storing the whitened strain data in fequency space to save one transform
             ## pronorm = find_normalization(mass_ratio, total_mass)
             strain_whiten = np.array(strain_whiten)
-            
+
             # Now I think we can maybe just apply it here
-            
+
             for i in range(len(strain_whiten)):
                 strain_whiten[i] = strain_whiten[i] * snrMax
-            
+
             ## Nt = len(strain_whiten)
             ## strain_whiten = np.fft.rfft(strain_whiten)
             ## strain_whiten = strain_whiten * pronorm
@@ -130,7 +134,7 @@ def get_gravdata():
             data = bandpassData(fband[1], fband[0], strain_whiten, timeData)
             midpoint = np.round(data.shape[0] / 2.0)
             buffer = np.ceil(data.shape[0] * 0.25)
-            center_of_data = data[int(midpoint - buffer) : int(midpoint + buffer)]
+            center_of_data = data[int(midpoint - buffer): int(midpoint + buffer)]
             # for i in range(len(center_of_data)):
             #     center_of_data[i][1] = center_of_data[i][1]
             return jsonify({'data': center_of_data.tolist(), 'snrMax': snrMax})
@@ -138,7 +142,7 @@ def get_gravdata():
             return jsonify({'error': 'Session ID not found'})
     except Exception as e:
         return jsonify({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
-    
+
 
 @api.route("/gravity", methods=["GET"])
 def get_gravity():
@@ -146,9 +150,15 @@ def get_gravity():
     try:
         mass_ratio = float(request.args['ratioMass'])
         total_mass = float(request.args['totalMass'])
-        data = find_strain_model_data(mass_ratio, total_mass)
+        mass_ratioStrain = float(request.args['ratioMassStrain'])
+        total_massStrain = float(request.args['totalMassStrain'])
+        print('Total mass values: ', total_mass, total_massStrain)
+        data = find_strain_model_data(mass_ratioStrain, total_massStrain)
         for i in range(len(data)):
-            data[i][1] = data[i][1] * 10**22.705
+            data[i][1] = data[i][1] * 10 ** 22.805
+            if i > 0.65 * len(data):
+                data[i][1] = 0
+
         return json.dumps({'strain_model': data, 'freq_model': find_frequency_model_data(mass_ratio, total_mass)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
@@ -164,12 +174,13 @@ def upload_process_gravdata():
         print('ID : ', session_id)
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        strain_whiten, timeData, PSD, rawTimeseries, timeOfRecord, timeZero= get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
+        strain_whiten, timeData, PSD, rawTimeseries, timeOfRecord, timeZero = get_data_from_file(
+            os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
         ## We need to export all the string info from the file upon loading for naming purposes
 
         print('Time Data Raw: ', timeData)
         print('Raw TimeSeries Data is: ', rawTimeseries)
-        rawTimeseries = TimeSeries(rawTimeseries.to_pycbc(), delta_t=1/16384)
+        rawTimeseries = TimeSeries(rawTimeseries.to_pycbc(), delta_t=1 / 16384)
         ## The important data seems to always be within the 2 secends preceeding and proceeding the center of the data
         ## rip and tear
         lowInd = 0
@@ -179,12 +190,12 @@ def upload_process_gravdata():
             if 13.9 < timeData[i] < 14.0:
                 lowInd = i
             if 17.9 < timeData[i] < 18.0:
-                highInd = i   
+                highInd = i
         print('Before Length: ', len(strain_whiten))
-        strain_whiten = strain_whiten[lowInd:highInd]  
+        strain_whiten = strain_whiten[lowInd:highInd]
         timeData = timeData[lowInd:highInd]
         print('TimeData cropped: ', timeData)
-        print('After Length: ', len(strain_whiten))    
+        print('After Length: ', len(strain_whiten))
 
         # Store the whitened data, time, and last access timestamp in the dictionary using the session ID as the key
         # for SNR reasons we may also store the raw data timeseries and its PSD here too
@@ -212,11 +223,12 @@ def upload_process_gravdata():
             data = bandpassData(fband[1], fband[0], strain_whiten, timeData)
             midpoint = np.round(data.shape[0] / 2.0)
             buffer = np.ceil(data.shape[0] * 0.25)
-            center_of_data = data[int(midpoint - buffer) : int(midpoint + buffer)]
+            center_of_data = data[int(midpoint - buffer): int(midpoint + buffer)]
             # for i in range(len(center_of_data)):
             #     center_of_data[i][1] = center_of_data[i][1]
         # Set the session ID as a cookie in the response
-        response = jsonify({'dataSet': center_of_data.tolist(), 'sessionID': session_id, 'timeZero': timeZero.tolist(), 'timeOfRecord': timeOfRecord})
+        response = jsonify({'dataSet': center_of_data.tolist(), 'sessionID': session_id, 'timeZero': timeZero.tolist(),
+                            'timeOfRecord': timeOfRecord})
         response.set_cookie('session_id', session_id)
 
         return response
@@ -226,14 +238,13 @@ def upload_process_gravdata():
         rmtree(tempdir, ignore_errors=True)
 
 
-
 @api.route("/gravprofile", methods=["POST"])
 def get_sepctrogram():
     tempdir = mkdtemp()
     try:
         file = request.files['file']
         file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        figure, spec_array= get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
+        figure, spec_array = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
         # NetworkSNR = NetworkSNR.max()
         # print('The Network SNR for this one is: ', NetworkSNR)
         xbounds = figure.gca().get_xlim()
@@ -243,13 +254,14 @@ def get_sepctrogram():
         with open(os.path.join(tempdir, "specplot.png"), "rb") as image2string:
             encoded_image = base64.b64encode(image2string.read())
 
-        return json.dumps({'image': str(encoded_image), 'bounds': str(xbounds)+' '+str(ybounds),
+        return json.dumps({'image': str(encoded_image), 'bounds': str(xbounds) + ' ' + str(ybounds),
                            'spec_array': np.asarray(spec_array).tolist(), 'x0': str(spec_array.x0),
-                           'dx': str(spec_array.dx), 'y0' : str(spec_array.y0), 'dy': str(0.5)})
+                           'dx': str(spec_array.dx), 'y0': str(spec_array.y0), 'dy': str(0.5)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
     finally:
         rmtree(tempdir, ignore_errors=True)
+
 
 @api.route("/transient", methods=["POST"])
 def get_transient_bestfit():
@@ -341,6 +353,7 @@ def main():
     # Run the cleanup task every hour (3600 seconds)
     api.before_first_request(cleanup_whitened_data)
     api.run(port=5001)
+
 
 if __name__ == "__main__":
     main()
