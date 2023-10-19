@@ -1,15 +1,15 @@
 import numpy as np
 import os
 
+#File Paths are tailored to production side path layout
 def find_strain_model_data(mass_ratio, total_mass):
     try:
-        data = np.genfromtxt(
+        data = np.load(
             os.path.join(
-                os.path.dirname(__file__),
-                "gravity-model-data", "strain-model", f"mt_{total_mass:0.3f}",
-                f"gravdata-{total_mass:.3f}-{mass_ratio:.3f}.dat"
-            ),
-            skip_header=1)
+                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"mt_{total_mass:0.3f}",
+                f"gravdata-{total_mass:.3f}-{mass_ratio:.3f}.npy"
+            ))
+        data = data[1:]
         step = data[1, 0].tolist() - data[0,0].tolist()
         end = data[-1, 0].tolist()
         start = data[0, 0].tolist()
@@ -28,13 +28,11 @@ def find_strain_model_data(mass_ratio, total_mass):
 
 def find_bandpass_range(mass_ratio, total_mass):
     try:
-        data = np.genfromtxt(
+        data = np.load(
             os.path.join(
-                os.path.dirname(__file__),
-                "gravity-model-data", "strain-model", f"bf_{total_mass:0.3f}",
-                f"bandpassData-{total_mass:.3f}-{mass_ratio:.3f}.dat"
-            ),
-            skip_header=1)
+                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"bf_{total_mass:0.3f}",
+                f"bandpassData-{total_mass:.3f}-{mass_ratio:.3f}.npy"
+            ))
         data = data.tolist()
         return data
 
@@ -44,13 +42,12 @@ def find_bandpass_range(mass_ratio, total_mass):
 # pull out normalization values
 def find_normalization(mass_ratio, total_mass):
     try:
-        data = np.genfromtxt(
+        data = np.load(
             os.path.join(
-                os.path.dirname(__file__),
-                "gravity-model-data", "strain-model", f"norm_{total_mass:0.3f}",
-                f"normData-{total_mass:.3f}-{mass_ratio:.3f}.dat"
-            ),
-            skip_header=1)
+                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"norm_{total_mass:0.3f}",
+                f"normData-{total_mass:.3f}-{mass_ratio:.3f}.npy"
+            ))
+        data = data[1:]
         data = data.tolist()
         return data
 
@@ -60,14 +57,11 @@ def find_normalization(mass_ratio, total_mass):
 # pull the unmodified frequency waveform model
 def find_raw_fmodel(mass_ratio, total_mass):
     try:
-        data = np.genfromtxt(
+        data = np.load(
             os.path.join(
-                os.path.dirname(__file__),
-                "gravity-model-data", "strain-model", f"raw_{total_mass:0.3f}",
-                f"rawData-{total_mass:.3f}-{mass_ratio:.3f}.dat"
-            ),
-            skip_header=1,
-            dtype=complex)
+                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"raw_{total_mass:0.3f}",
+                f"rawData-{total_mass:.3f}-{mass_ratio:.3f}.npy"
+            ))
         return data
 
     except FileNotFoundError:
