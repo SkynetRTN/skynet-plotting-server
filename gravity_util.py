@@ -6,7 +6,7 @@ def find_strain_model_data(mass_ratio, total_mass):
     try:
         data = np.load(
             os.path.join(
-                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"mt_{total_mass:0.3f}",
+                '/skynet/afs/catalogs/gravity/', f"mt_{total_mass:0.3f}",
                 f"gravdata-{total_mass:.3f}-{mass_ratio:.3f}.npy"
             ))
         data = data[1:]
