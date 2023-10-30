@@ -33,6 +33,7 @@ api = Flask(__name__)
 api.debug = True
 
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
+DATA_EXPIRATION = 86400
 
 # Dictionary to store whitened data, time, and last access timestamp, and raw data (maybe)
 #whitened_data = {}
@@ -142,14 +143,8 @@ def get_gravdata():
             center_of_data = data[int(midpoint - buffer): int(midpoint + buffer)]
 
 
-            data  = {
-                'whitenedStrain': strain_whiten.tolist(),
-                'time': timeData.tolist(),
-                'last_access_time': time.time(),
-                'rawTimeseries': rawTimeseries,
-                'PSD': psd
-            }
-            r.set(session_id, pickle.dumps(data))
+
+            r.expire(session_id, DATA_EXPIRATION)
 
 
             # for i in range(len(center_of_data)):
@@ -224,6 +219,7 @@ def upload_process_gravdata():
             'PSD': PSD
         }
         r.set(session_id, pickle.dumps(data))
+        r.expire(session_id, DATA_EXPIRATION)
 
         fband = [35, 400]
         if True:
@@ -347,26 +343,26 @@ def get_vizier_photometry():
         return json.dumps({'failure': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
-# Periodic cleanup task to remove expired or unused entries
-def cleanup_whitened_data():
-    expiration_time = 3600 * 3  # Time in seconds after which an entry is considered expired
+# # Periodic cleanup task to remove expired or unused entries
+# def cleanup_whitened_data():
+#     expiration_time = 3600 * 3  # Time in seconds after which an entry is considered expired
 
-    current_time = time.time()
-    expired_entries = []
+#     current_time = time.time()
+#     expired_entries = []
 
-    for session_id, data in whitened_data.items():
-        last_access_time = data['last_access_time']
-        if current_time - last_access_time > expiration_time:
-            expired_entries.append(session_id)
+#     for session_id, data in whitened_data.items():
+#         last_access_time = data['last_access_time']
+#         if current_time - last_access_time > expiration_time:
+#             expired_entries.append(session_id)
 
-    # Remove the expired entries from the whitened_data dictionary
-    for session_id in expired_entries:
-        del whitened_data[session_id]
+#     # Remove the expired entries from the whitened_data dictionary
+#     for session_id in expired_entries:
+#         del whitened_data[session_id]
 
 
 def main():
     # Run the cleanup task every hour (3600 seconds)
-    api.before_first_request(cleanup_whitened_data)
+    # api.before_first_request(cleanup_whitened_data)
     api.run(port=5001)
 
 
