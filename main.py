@@ -1,6 +1,8 @@
 import base64
 import os
 import sys
+import redis
+import pickle
 import traceback
 from os import error
 import pandas as pd
@@ -30,15 +32,18 @@ import time
 api = Flask(__name__)
 api.debug = True
 
+r = redis.StrictRedis(host='localhost', port=6379, db=0)
+DATA_EXPIRATION = 86400
+
 # Dictionary to store whitened data, time, and last access timestamp, and raw data (maybe)
-whitened_data = {}
+#whitened_data = {}
 
 
 # test
 @api.before_request
 def resolve_request_body() -> None:
     ds = [request.args, request.form]
-    body = request.get_json()
+    body = request.get_json(force=True, silent=True)
     if body:
         ds.append(MultiDict(body.items()))
 
@@ -86,8 +91,9 @@ def get_gravdata():
         fband = find_bandpass_range(mass_ratio, total_mass)
         hp = find_raw_fmodel(mass_ratio, total_mass)
         session_id = request.args['sessionID']
-        if session_id in whitened_data:
-            data = whitened_data[session_id]
+        
+        if r.exists(session_id):
+            data = pickle.loads(r.get(session_id))
             strain_whiten = data['whitenedStrain']
             timeData = data['time']
             last_access_time = data['last_access_time']
@@ -114,7 +120,6 @@ def get_gravdata():
             snrMax = abs(snr[peak])
             print('SNR Max is: ', snrMax)
             # Update the last access timestamp
-            whitened_data[session_id]['last_access_time'] = time.time()
             # Process the whitened data and time as needed
             ## there is a VERY strong chance that we should just be storing the whitened strain data in fequency space to save one transform
             ## pronorm = find_normalization(mass_ratio, total_mass)
@@ -125,6 +130,8 @@ def get_gravdata():
             for i in range(len(strain_whiten)):
                 strain_whiten[i] = strain_whiten[i] * snrMax
 
+
+
             ## Nt = len(strain_whiten)
             ## strain_whiten = np.fft.rfft(strain_whiten)
             ## strain_whiten = strain_whiten * pronorm
@@ -134,6 +141,12 @@ def get_gravdata():
             midpoint = np.round(data.shape[0] / 2.0)
             buffer = np.ceil(data.shape[0] * 0.25)
             center_of_data = data[int(midpoint - buffer): int(midpoint + buffer)]
+
+
+
+            r.expire(session_id, DATA_EXPIRATION)
+
+
             # for i in range(len(center_of_data)):
             #     center_of_data[i][1] = center_of_data[i][1]
             return jsonify({'data': center_of_data.tolist(), 'snrMax': snrMax})
@@ -198,23 +211,22 @@ def upload_process_gravdata():
 
         # Store the whitened data, time, and last access timestamp in the dictionary using the session ID as the key
         # for SNR reasons we may also store the raw data timeseries and its PSD here too
-        whitened_data[session_id] = {
+        data  = {
             'whitenedStrain': strain_whiten.tolist(),
             'time': timeData.tolist(),
             'last_access_time': time.time(),
             'rawTimeseries': rawTimeseries,
             'PSD': PSD
         }
+        r.set(session_id, pickle.dumps(data))
+        r.expire(session_id, DATA_EXPIRATION)
 
         fband = [35, 400]
-        if session_id in whitened_data:
-            data = whitened_data[session_id]
+        if True:
             strain_whiten = data['whitenedStrain']
             timeData = data['time']
             last_access_time = data['last_access_time']
 
-            # Update the last access timestamp
-            whitened_data[session_id]['last_access_time'] = time.time()
 
             # Process the whitened data and time as needed
             strain_whiten = np.array(strain_whiten)
@@ -331,26 +343,26 @@ def get_vizier_photometry():
         return json.dumps({'failure': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
-# Periodic cleanup task to remove expired or unused entries
-def cleanup_whitened_data():
-    expiration_time = 3600 * 3  # Time in seconds after which an entry is considered expired
+# # Periodic cleanup task to remove expired or unused entries
+# def cleanup_whitened_data():
+#     expiration_time = 3600 * 3  # Time in seconds after which an entry is considered expired
 
-    current_time = time.time()
-    expired_entries = []
+#     current_time = time.time()
+#     expired_entries = []
 
-    for session_id, data in whitened_data.items():
-        last_access_time = data['last_access_time']
-        if current_time - last_access_time > expiration_time:
-            expired_entries.append(session_id)
+#     for session_id, data in whitened_data.items():
+#         last_access_time = data['last_access_time']
+#         if current_time - last_access_time > expiration_time:
+#             expired_entries.append(session_id)
 
-    # Remove the expired entries from the whitened_data dictionary
-    for session_id in expired_entries:
-        del whitened_data[session_id]
+#     # Remove the expired entries from the whitened_data dictionary
+#     for session_id in expired_entries:
+#         del whitened_data[session_id]
 
 
 def main():
     # Run the cleanup task every hour (3600 seconds)
-    api.before_first_request(cleanup_whitened_data)
+    # api.before_first_request(cleanup_whitened_data)
     api.run(port=5001)
 
 
