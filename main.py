@@ -90,8 +90,9 @@ def get_gravdata():
         data = request.get_json()
         mass_ratio = float(request.args['ratioMass'])
         total_mass = float(request.args['totalMass'])
-        fband = find_bandpass_range(mass_ratio, total_mass)
-        hp = find_raw_fmodel(mass_ratio, total_mass)
+        phase = float(request.args['phaseMass'])
+        fband = find_bandpass_range(mass_ratio, total_mass, phase)
+        hp = find_raw_fmodel(mass_ratio, total_mass, phase)
         session_id = request.args['sessionID']
         
         if r.exists(session_id):
@@ -166,8 +167,8 @@ def get_gravity():
         total_mass = float(request.args['totalMass'])
         mass_ratioStrain = float(request.args['ratioMassStrain'])
         total_massStrain = float(request.args['totalMassStrain'])
-        print('Total mass values: ', total_mass, total_massStrain)
-        data = find_strain_model_data(mass_ratioStrain, total_massStrain)
+        phase = float(request.args['phaseStrain'])
+        data = find_strain_model_data(mass_ratioStrain, total_massStrain, phase)
         for i in range(len(data)):
             data[i][1] = data[i][1] * 10 ** 22.805
             if i > 0.65 * len(data):
