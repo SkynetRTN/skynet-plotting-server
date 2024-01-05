@@ -28,9 +28,11 @@ from plotligo_trimmed import get_data_from_file, bandpassData
 from bestFit import fitToData
 import uuid
 import time
+from flask_cors import CORS
 
 api = Flask(__name__)
 api.debug = True
+CORS(api)
 
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
 DATA_EXPIRATION = 86400
@@ -184,10 +186,16 @@ def upload_process_gravdata():
         # Generate a unique identifier for the user's session or data session
         session_id = str(uuid.uuid4())
         print('ID : ', session_id)
-        file = request.files['file']
-        file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        strain_whiten, timeData, PSD, rawTimeseries, timeOfRecord, timeZero = get_data_from_file(
-            os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
+        if request.args['default_set'] == 'true':
+            strain_whiten, timeData, PSD, rawTimeseries, timeOfRecord, timeZero = get_data_from_file(
+            './gravity-model-data/default-set/GW150914.hdf5'
+                , whiten_data=1)
+        else:
+            file = request.files['file']
+            file.save(os.path.join(tempdir, "temp-file.hdf5"))
+
+            strain_whiten, timeData, PSD, rawTimeseries, timeOfRecord, timeZero = get_data_from_file(
+                os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
         ## We need to export all the string info from the file upon loading for naming purposes
 
         print('Time Data Raw: ', timeData)
@@ -253,9 +261,14 @@ def upload_process_gravdata():
 def get_sepctrogram():
     tempdir = mkdtemp()
     try:
-        file = request.files['file']
-        file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        figure, spec_array = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
+        if request.args['default_set'] == 'true':
+            figure, spec_array = get_data_from_file(
+            './gravity-model-data/default-set/GW150914.hdf5'
+                , plot_spectrogram=1)
+        else:
+            file = request.files['file']
+            file.save(os.path.join(tempdir, "temp-file.hdf5"))
+            figure, spec_array = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
         # NetworkSNR = NetworkSNR.max()
         # print('The Network SNR for this one is: ', NetworkSNR)
         xbounds = figure.gca().get_xlim()

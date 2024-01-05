@@ -6,7 +6,7 @@ def find_strain_model_data(mass_ratio, total_mass):
     try:
         data = np.load(
             os.path.join(
-                '/skynet/afs/catalogs/gravity/', f"mt_{total_mass:0.3f}",
+                '/Volumes/LogsSSD/FullFileLibraryBinary/', f"mt_{total_mass:0.3f}",
                 f"gravdata-{total_mass:.3f}-{mass_ratio:.3f}.npy"
             ))
         data = data[1:]
@@ -30,7 +30,7 @@ def find_bandpass_range(mass_ratio, total_mass):
     try:
         data = np.load(
             os.path.join(
-                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"bf_{total_mass:0.3f}",
+                '/Volumes/LogsSSD/FullFileLibraryBinary/', f"bf_{total_mass:0.3f}",
                 f"bandpassData-{total_mass:.3f}-{mass_ratio:.3f}.npy"
             ))
         data = data.tolist()
@@ -44,7 +44,7 @@ def find_normalization(mass_ratio, total_mass):
     try:
         data = np.load(
             os.path.join(
-                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"norm_{total_mass:0.3f}",
+                '/Volumes/LogsSSD/FullFileLibraryBinary/', f"norm_{total_mass:0.3f}",
                 f"normData-{total_mass:.3f}-{mass_ratio:.3f}.npy"
             ))
         data = data[1:]
@@ -59,7 +59,7 @@ def find_raw_fmodel(mass_ratio, total_mass):
     try:
         data = np.load(
             os.path.join(
-                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"raw_{total_mass:0.3f}",
+                '/Volumes/LogsSSD/FullFileLibraryBinary/', f"raw_{total_mass:0.3f}",
                 f"rawData-{total_mass:.3f}-{mass_ratio:.3f}.npy"
             ))
         return data
