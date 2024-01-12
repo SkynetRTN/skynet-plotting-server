@@ -6,7 +6,7 @@ def find_strain_model_data(mass_ratio, total_mass, phase):
     try:
         data = np.load(
             os.path.join(
-                '/Volumes/LogsSSD/FullFileLibraryBinaryUltimate/', f"mt_{total_mass:0.3f}",
+                '/skynet/afs/catalogs/gravity/', f"mt_{total_mass:0.3f}",
                 f"gravdata-{total_mass:.3f}-{mass_ratio:.3f}-{phase:.3f}.npy"
             ), allow_pickle=True).item()
         time_array = data['Time']
@@ -31,7 +31,7 @@ def find_bandpass_range(mass_ratio, total_mass, phase):
     try:
         data = np.load(
             os.path.join(
-                '/Volumes/LogsSSD/FullFileLibraryBinaryUltimate/', f"bf_{total_mass:0.3f}",
+                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"bf_{total_mass:0.3f}",
                 f"bandpassData-{total_mass:.3f}-{mass_ratio:.3f}-{phase:.3f}.npy"
             ), allow_pickle=True)
         data = data.tolist()
@@ -45,7 +45,7 @@ def find_normalization(mass_ratio, total_mass, phase):
     try:
         data = np.load(
             os.path.join(
-                '/Volumes/LogsSSD/FullFileLibraryBinaryUltimate/', f"norm_{total_mass:0.3f}",
+                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"norm_{total_mass:0.3f}",
                 f"normData-{total_mass:.3f}-{mass_ratio:.3f}-{phase:.3f}.npy"
             ), allow_pickle=True)
         data = data[1:]
@@ -60,7 +60,7 @@ def find_raw_fmodel(mass_ratio, total_mass, phase):
     try:
         data = np.load(
             os.path.join(
-                '/Volumes/LogsSSD/FullFileLibraryBinaryUltimate/', f"raw_{total_mass:0.3f}",
+                '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"raw_{total_mass:0.3f}",
                 f"rawData-{total_mass:.3f}-{mass_ratio:.3f}-{phase:.3f}.npy"
             ), allow_pickle=True)
         return data
