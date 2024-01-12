@@ -145,10 +145,11 @@ def get_gravdata():
             buffer = np.ceil(data.shape[0] * 0.25)
             center_of_data = data[int(midpoint - buffer): int(midpoint + buffer)]
 
-
+            if np.isnan(center_of_data[0][1]) == True:
+                center_of_data = np.nan_to_num(center_of_data, nan=0.0)
 
             r.expire(session_id, DATA_EXPIRATION)
-
+            print('Data trouble: ', center_of_data[0][1])
 
             # for i in range(len(center_of_data)):
             #     center_of_data[i][1] = center_of_data[i][1]
