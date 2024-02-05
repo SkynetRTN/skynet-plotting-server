@@ -28,9 +28,11 @@ from plotligo_trimmed import get_data_from_file, bandpassData
 from bestFit import fitToData
 import uuid
 import time
+from flask_cors import CORS
 
 api = Flask(__name__)
 api.debug = True
+CORS(api)
 
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
 DATA_EXPIRATION = 86400
@@ -88,8 +90,9 @@ def get_gravdata():
         data = request.get_json()
         mass_ratio = float(request.args['ratioMass'])
         total_mass = float(request.args['totalMass'])
-        fband = find_bandpass_range(mass_ratio, total_mass)
-        hp = find_raw_fmodel(mass_ratio, total_mass)
+        phase = float(request.args['phaseMass'])
+        fband = find_bandpass_range(mass_ratio, total_mass, phase)
+        hp = find_raw_fmodel(mass_ratio, total_mass, phase)
         session_id = request.args['sessionID']
         
         if r.exists(session_id):
@@ -142,10 +145,11 @@ def get_gravdata():
             buffer = np.ceil(data.shape[0] * 0.25)
             center_of_data = data[int(midpoint - buffer): int(midpoint + buffer)]
 
-
+            if np.isnan(center_of_data[0][1]) == True:
+                center_of_data = np.nan_to_num(center_of_data, nan=0.0)
 
             r.expire(session_id, DATA_EXPIRATION)
-
+            print('Data trouble: ', center_of_data[0][1])
 
             # for i in range(len(center_of_data)):
             #     center_of_data[i][1] = center_of_data[i][1]
@@ -164,8 +168,8 @@ def get_gravity():
         total_mass = float(request.args['totalMass'])
         mass_ratioStrain = float(request.args['ratioMassStrain'])
         total_massStrain = float(request.args['totalMassStrain'])
-        print('Total mass values: ', total_mass, total_massStrain)
-        data = find_strain_model_data(mass_ratioStrain, total_massStrain)
+        phase = float(request.args['phaseStrain'])
+        data = find_strain_model_data(mass_ratioStrain, total_massStrain, phase)
         for i in range(len(data)):
             data[i][1] = data[i][1] * 10 ** 22.805
             if i > 0.65 * len(data):
@@ -184,10 +188,16 @@ def upload_process_gravdata():
         # Generate a unique identifier for the user's session or data session
         session_id = str(uuid.uuid4())
         print('ID : ', session_id)
-        file = request.files['file']
-        file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        strain_whiten, timeData, PSD, rawTimeseries, timeOfRecord, timeZero = get_data_from_file(
-            os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
+        if request.args['default_set'] == 'true':
+            strain_whiten, timeData, PSD, rawTimeseries, timeOfRecord, timeZero = get_data_from_file(
+            './gravity-model-data/default-set/GW150914.hdf5'
+                , whiten_data=1)
+        else:
+            file = request.files['file']
+            file.save(os.path.join(tempdir, "temp-file.hdf5"))
+
+            strain_whiten, timeData, PSD, rawTimeseries, timeOfRecord, timeZero = get_data_from_file(
+                os.path.join(tempdir, "temp-file.hdf5"), whiten_data=1)
         ## We need to export all the string info from the file upon loading for naming purposes
 
         print('Time Data Raw: ', timeData)
@@ -253,9 +263,14 @@ def upload_process_gravdata():
 def get_sepctrogram():
     tempdir = mkdtemp()
     try:
-        file = request.files['file']
-        file.save(os.path.join(tempdir, "temp-file.hdf5"))
-        figure, spec_array = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
+        if request.args['default_set'] == 'true':
+            figure, spec_array = get_data_from_file(
+            './gravity-model-data/default-set/GW150914.hdf5'
+                , plot_spectrogram=1)
+        else:
+            file = request.files['file']
+            file.save(os.path.join(tempdir, "temp-file.hdf5"))
+            figure, spec_array = get_data_from_file(os.path.join(tempdir, "temp-file.hdf5"), plot_spectrogram=1)
         # NetworkSNR = NetworkSNR.max()
         # print('The Network SNR for this one is: ', NetworkSNR)
         xbounds = figure.gca().get_xlim()

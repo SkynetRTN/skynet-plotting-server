@@ -177,7 +177,7 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
 
     # Finds the spectrogram and plots it. Returns the figure and the spectrogram object
     if plot_spectrogram:
-        timewindow = 0.05  # hardcoded to plot 5 seconds centered on merger - can change
+        timewindow = 0.10  # hardcoded to plot 5 seconds centered on merger - can change
 
         ## Using GWPY to make graph
 

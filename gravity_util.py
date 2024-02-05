@@ -2,18 +2,19 @@ import numpy as np
 import os
 
 #File Paths are tailored to production side path layout
-def find_strain_model_data(mass_ratio, total_mass):
+def find_strain_model_data(mass_ratio, total_mass, phase):
     try:
         data = np.load(
             os.path.join(
                 '/skynet/afs/catalogs/gravity/', f"mt_{total_mass:0.3f}",
-                f"gravdata-{total_mass:.3f}-{mass_ratio:.3f}.npy"
-            ))
-        data = data[1:]
-        step = data[1, 0].tolist() - data[0,0].tolist()
-        end = data[-1, 0].tolist()
-        start = data[0, 0].tolist()
-        data = data[:, :2].tolist()
+                f"gravdata-{total_mass:.3f}-{mass_ratio:.3f}-{phase:.3f}.npy"
+            ), allow_pickle=True).item()
+        time_array = data['Time']
+        frequency_array = data['Frequency']
+        # step = data[1, 0].tolist() - data[0,0].tolist()
+        # end = data[-1, 0].tolist()
+        # start = data[0, 0].tolist()
+        data = [[time, frequency] for time, frequency in zip(time_array, frequency_array)]
         # we want to add some elements to extend the dataset and make it more stable, I'm not going to start 
         # very accurate, but lets see what we can do
         # for i in range(100000):
@@ -26,13 +27,13 @@ def find_strain_model_data(mass_ratio, total_mass):
 
 # pull the bandpass frequencies from the files
 
-def find_bandpass_range(mass_ratio, total_mass):
+def find_bandpass_range(mass_ratio, total_mass, phase):
     try:
         data = np.load(
             os.path.join(
                 '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"bf_{total_mass:0.3f}",
-                f"bandpassData-{total_mass:.3f}-{mass_ratio:.3f}.npy"
-            ))
+                f"bandpassData-{total_mass:.3f}-{mass_ratio:.3f}-{phase:.3f}.npy"
+            ), allow_pickle=True)
         data = data.tolist()
         return data
 
@@ -40,13 +41,13 @@ def find_bandpass_range(mass_ratio, total_mass):
         raise ValueError({"error": "Requested bandpass data not found"})
 
 # pull out normalization values
-def find_normalization(mass_ratio, total_mass):
+def find_normalization(mass_ratio, total_mass, phase):
     try:
         data = np.load(
             os.path.join(
                 '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"norm_{total_mass:0.3f}",
-                f"normData-{total_mass:.3f}-{mass_ratio:.3f}.npy"
-            ))
+                f"normData-{total_mass:.3f}-{mass_ratio:.3f}-{phase:.3f}.npy"
+            ), allow_pickle=True)
         data = data[1:]
         data = data.tolist()
         return data
@@ -55,13 +56,13 @@ def find_normalization(mass_ratio, total_mass):
         raise ValueError({"error": "Requested normalization data not found"})
 
 # pull the unmodified frequency waveform model
-def find_raw_fmodel(mass_ratio, total_mass):
+def find_raw_fmodel(mass_ratio, total_mass, phase):
     try:
         data = np.load(
             os.path.join(
                 '/afs/cas.unc.edu/depts/physics_astronomy/skynet/catalogs/gravity/', f"raw_{total_mass:0.3f}",
-                f"rawData-{total_mass:.3f}-{mass_ratio:.3f}.npy"
-            ))
+                f"rawData-{total_mass:.3f}-{mass_ratio:.3f}-{phase:.3f}.npy"
+            ), allow_pickle=True)
         return data
 
     except FileNotFoundError:
