@@ -22,10 +22,10 @@ from werkzeug.datastructures import CombinedMultiDict, MultiDict
 from cluster_isochrone import get_iSkip, find_data_in_files
 from cluster_pro_scraper import scraper_query_object_local, coordinates_to_dist, scraper_query
 from gravity_util import find_strain_model_data, find_frequency_model_data, find_bandpass_range, find_normalization, \
-    find_raw_fmodel
+   find_raw_fmodel
 from gaia_util import gaia_match
 from plotligo_trimmed import get_data_from_file, bandpassData
-from bestFit import fitToData
+from transient_model_fit import fit
 import uuid
 import time
 from flask_cors import CORS
@@ -293,11 +293,7 @@ def get_sepctrogram():
 def get_transient_bestfit():
     tb = sys.exc_info()[2]
     try:
-        xdata = request.args['xdata']
-        ydata = request.args['ydata']
-        filters = request.args['filters']
-        guess = request.args['params']
-        popt = fitToData(xdata, ydata, filters, guess)
+        popt = fit(request.args['xdata'], request.args['ydata'], request.args['filters'], request.args['params'])
         return json.dumps({'popt': list(popt)})
     except Exception as e:
         return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
