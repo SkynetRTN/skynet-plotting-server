@@ -51,7 +51,14 @@ def resolve_request_body() -> None:
 
     request.args = CombinedMultiDict(ds)
 
+    # ds = {**request.args, **request.form}
+    # body = request.get_json(force=True, silent=True)
+    # if body:
+    #     ds.append(**MultiDict(body.items()))
 
+    # request.args = CombinedMultiDict(ds)
+
+#CLUSTER
 @api.route("/isochrone", methods=["GET"])
 def get_data():
     tb = sys.exc_info()[2]
@@ -83,7 +90,7 @@ def handle_options():
 
     return ("", 200, headers)
 
-
+#Pulls model based on user selected params, processes data and sends it back. (purple wave)
 @api.route("/gravitydata", methods=["POST"])
 def get_gravdata():
     try:
@@ -160,6 +167,7 @@ def get_gravdata():
         return jsonify({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
 
 
+# takes user defined params and returns a model (orange wave and yellow bounds)
 @api.route("/gravity", methods=["GET"])
 def get_gravity():
     tb = sys.exc_info()[2]
@@ -191,7 +199,7 @@ def upload_process_gravdata():
         if request.args['default_set'] == 'true':
             strain_whiten, timeData, PSD, rawTimeseries, timeOfRecord, timeZero = get_data_from_file(
             './gravity-model-data/default-set/GW150914.hdf5'
-                , whiten_data=1)
+                , whiten_data=1)    
         else:
             file = request.files['file']
             file.save(os.path.join(tempdir, "temp-file.hdf5"))
@@ -254,7 +262,8 @@ def upload_process_gravdata():
 
         return response
     except Exception as e:
-        return jsonify({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+        print(e)
+        return jsonify({ 'err': str(e), 'log': traceback.format_tb(e.__traceback__)}), 400
     finally:
         rmtree(tempdir, ignore_errors=True)
 
@@ -280,14 +289,21 @@ def get_sepctrogram():
         with open(os.path.join(tempdir, "specplot.png"), "rb") as image2string:
             encoded_image = base64.b64encode(image2string.read())
 
+        print(sys.getdefaultencoding())
+
+        with open("zServerImage.png", 'wb') as f:
+            img = base64.b64decode(bytes(str(encoded_image, encoding=sys.getdefaultencoding()), encoding=sys.getdefaultencoding()))
+            f.write(img)
+
         return json.dumps({'image': str(encoded_image), 'bounds': str(xbounds) + ' ' + str(ybounds),
                            'spec_array': np.asarray(spec_array).tolist(), 'x0': str(spec_array.x0),
                            'dx': str(spec_array.dx), 'y0': str(spec_array.y0), 'dy': str(0.5)})
     except Exception as e:
-        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+        return json.dumps({'err': str(e), 'log': traceback.format_tb(e.__traceback__)}), 400
     finally:
         rmtree(tempdir, ignore_errors=True)
 
+# NON GRAVITY ENDPOINTS
 
 @api.route("/transient", methods=["POST"])
 def get_transient_bestfit():

@@ -9,3 +9,6 @@ gaia_clusters.sqlite
 .idea/*
 temp-grav-data/temp-file.hdf5
 patch
+locustfile
+zClientImage.png
+zServerImage.png

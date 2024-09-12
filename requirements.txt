@@ -30,7 +30,7 @@ Jinja2==3.0.3
 joblib==1.1.0
 keyring==23.9.1
 kiwisolver==1.4.2
-lalsuite==7.19
+# lalsuite==7.19
 ligo-segments==1.4.0
 ligotimegps==2.0.1
 lscsoft-glue==3.0.1
