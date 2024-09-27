@@ -12,3 +12,4 @@ patch
 locustfile
 zClientImage.png
 zServerImage.png
+dump.rdb
