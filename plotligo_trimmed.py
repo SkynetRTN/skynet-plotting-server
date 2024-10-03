@@ -7,6 +7,7 @@ from scipy.signal import butter, filtfilt, tukey
 from gwpy.timeseries import TimeSeries
 import matplotlib.mlab as mlab
 import matplotlib
+import h5py
 from scipy.special import erfinv
 
 matplotlib.use('Agg')
@@ -122,6 +123,14 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
     try:
         # read in data from H1 and L1, if available:
         strain, time, chan_dict, duration, file_fs, gpsStart, gpsEnd = rl.loaddata(file_name)
+
+
+        hdf5_file = h5py.File(file_name, 'r')
+        timeOfRecord = hdf5_file['meta']['UTCstart'][()]
+        timeOfRecord = timeOfRecord.decode('utf-8')
+        timeZero =  hdf5_file['meta']['GPSstart'][()]
+    
+    
     except Exception as e:
         print(e)
         print("Cannot find data files! - - " + file_name)
@@ -138,7 +147,7 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
     
     # the time sample interval (uniformly sampled!)
     dt = time[1] - time[0]
-    
+    strain_timeseries = TimeSeries(strain, times=time)
 
 
     if whiten_data:
@@ -159,7 +168,7 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         # # final product here
         # strain_whitenbp = filtfilt(bb, ab, strain_whiten) / normalization
 
-        return strain_whiten, time
+        return strain_whiten, time, psd, strain_timeseries, timeOfRecord, timeZero
         # return np.concatenate((time.reshape(-1,1), strain_whitenbp.reshape(-1,1)), axis=1)
 
     # Finds the spectrogram and plots it. Returns the figure and the spectrogram object
@@ -167,7 +176,6 @@ def get_data_from_file(file_name, whiten_data=0, plot_spectrogram=0):
         timewindow = 0.05  # hardcoded to plot 5 seconds centered on merger - can change
 
         ## Using GWPY to make graph
-        strain_timeseries = TimeSeries(strain, times=time)
 
         midpoint = (gpsStart + gpsEnd)/2
         window = (gpsEnd-gpsStart)*timewindow

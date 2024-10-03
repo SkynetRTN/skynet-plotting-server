@@ -12,3 +12,4 @@ patch
 zClientImage.png
 zServerImage.png
 gunicorn.py
+dump.rdb

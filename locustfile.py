@@ -1,4 +1,4 @@
-from locust import FastHttpUser, task, tag, between, events
+from locust import FastHttpUser, task, tag, between, events, constant_throughput, constant, log
 from factory import faker, DictFactory, fuzzy
 from json import dumps
 import base64
@@ -32,17 +32,24 @@ class GravityUser(FastHttpUser):
     @task(1)
     def gravfile(self):
         with open("./gravity-model-data/default-set/GW150914.hdf5", 'rb') as file:
-            with self.client.post("/gravfile", files={'file':file.read()}, data={"default_set": 'false'}, catch_response=True) as response:
+            with self.client.post("/gravfile", files={'file':file.read()}, data={"default_set": 'false','filename':"GW150914.hdf5"}, catch_response=True) as response:
                 
-                # data = response.json()
+                if not response.ok:
+                    return
+                sessionID = response.json()["sessionID"]
 
-                pass
+                with self.client.post("/gravitydata", totalMass=1, ratioMass=1, sessionID=sessionID) as retrieved_data:
+                    js = retrieved_data.json()
+                    
+                    if not retrieved_data.ok:
+                        print(js["err"])
+                        
 
     @tag("gravityprofile")
     @task(1)
     def gravprofile(self):
         with open("./gravity-model-data/default-set/GW150914.hdf5", 'rb') as file:
-            with self.rest("POST", "/gravprofile", files={'file':file.read()}, data={"default_set": 'false'}) as response:
+            with self.rest("POST", "/gravprofile", files={'file':file.read()}, data={"default_set": 'false','filename':"GW150914.hdf5"}) as response:
                 
                 if response.ok:
                     # data = response.js
@@ -53,4 +60,4 @@ class GravityUser(FastHttpUser):
                     pass
 
     host = "http://127.0.0.1:8000/"
-    wait_time = between(0.5,1.5)
+    wait_time = constant(10)

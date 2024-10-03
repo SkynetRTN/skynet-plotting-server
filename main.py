@@ -34,8 +34,7 @@ api.config['CACHE_REDIS_PORT'] = 6379
 cache = Cache(api)
 #Caching funtion to speed up duplicate requests
 def make_key():
-    request
-
+    return request.args["filename"]
 
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
 DATA_EXPIRATION = 86400
@@ -86,20 +85,23 @@ def handle_options():
 @api.route("/gravitydata", methods=["POST"])
 def get_gravdata():
     try:
-        data = request.get_json()
+        # data = request.get_json()
         mass_ratio = float(request.args['ratioMass'])
         total_mass = float(request.args['totalMass'])
-        fband = find_bandpass_range(mass_ratio, total_mass)
         session_id = request.args['sessionID']
 
-        if session_id in whitened_data:
-            data = whitened_data[session_id]
+        data = r.get(session_id)
+        if data:
+            data = pickle.loads(data)
+            
+
+            fband = find_bandpass_range(mass_ratio, total_mass)
             strain_whiten = data['whitenedStrain']
             timeData = data['time']
             last_access_time = data['last_access_time']
 
             # Update the last access timestamp
-            whitened_data[session_id]['last_access_time'] = time.time()
+            # whitened_data[session_id]['last_access_time'] = time.time()
 
             # Process the whitened data and time as needed
             strain_whiten = np.array(strain_whiten)
@@ -110,9 +112,9 @@ def get_gravdata():
             center_of_data = data[int(midpoint - buffer) : int(midpoint + buffer)]
             return jsonify({'data': center_of_data.tolist()})
         else:
-            return jsonify({'error': 'Session ID not found'})
+            return jsonify({'err': 'Session ID not found'}), 400
     except Exception as e:
-        return jsonify({'err': str(e), 'log': traceback.format_tb(e.__traceback__)})
+        return jsonify({'err': str(e), 'log': traceback.format_tb(e.__traceback__)}), 400
     
 
 @api.route("/gravity", methods=["GET"])
@@ -162,7 +164,7 @@ def upload_process_gravdata():
                 lowInd = i
             if 17.9 < timeData[i] < 18.0:
                 highInd = i
-        print('Before Length: ', len(strain_whiten))
+        # print('Before Length: ', len(strain_whiten))
         strain_whiten = strain_whiten[lowInd:highInd]
         timeData = timeData[lowInd:highInd]
         # print('TimeData cropped: ', timeData)
@@ -204,6 +206,7 @@ def upload_process_gravdata():
 
 
 @api.route("/gravprofile", methods=["POST"])
+@cache.cached(timeout=60, make_cache_key=make_key)
 def get_sepctrogram():
     tempdir = mkdtemp()
     try:
